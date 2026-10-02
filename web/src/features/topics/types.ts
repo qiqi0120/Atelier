@@ -9,7 +9,7 @@ export type { GateItemT, GateReportT } from '@/lib/gates'
 
 export type TopicStatus = 'todo' | 'doing' | 'done'
 /** calendar 由 SPEC-09（日历建议）落池；hot 留给 M2-3 */
-export type TopicSource = 'manual' | 'decode' | 'matrix' | 'calendar'
+export type TopicSource = 'manual' | 'decode' | 'matrix' | 'calendar' | 'hot'
 export type Verdict = 'do' | 'pivot' | 'dont'
 
 export type Topic = {
@@ -86,6 +86,7 @@ export const SOURCE_LABEL: Record<TopicSource, string> = {
   decode: '拆解',
   matrix: '矩阵',
   calendar: '日历',
+  hot: '热点',
 }
 
 export const VERDICT_META: Record<Verdict, { label: string; hint: string }> = {

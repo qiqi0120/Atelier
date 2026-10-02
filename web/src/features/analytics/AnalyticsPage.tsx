@@ -1,16 +1,19 @@
-/** SPEC-11 · 数据复盘页（M2-3a，占位页转正）。
+/** SPEC-11 · 数据复盘页（M2-3a，占位页转正）；SPEC-12 §3 增策划域 P3 三工具。
  *
- * 四个即席分析工具：账号诊断（primary，诚实模式）· 内容策略 · 受众画像 · 竞品分析。
+ * 七个即席分析/策划工具：账号诊断（primary，诚实模式）· 内容策略 · 受众画像 ·
+ * 竞品分析 · 营销策划 · 直播策划 · 商单方案。
  * 平台数据回收 / 数据看板（F-H2）属 M5，本页不装样子。
  */
 
 import { useState } from 'react'
-import { Gauge, ListChecks, Sparkles, Users } from 'lucide-react'
+import { CalendarRange, Gauge, Handshake, ListChecks, Sparkles, Tv, Users } from 'lucide-react'
 import { Button, Card, EmptyState } from '@/components'
 import { PageHead } from '@/features/shared/PageHead'
 import { AudienceDialog } from './AudienceDialog'
 import { CompetitorDialog } from './CompetitorDialog'
 import { DiagnoseDialog } from './DiagnoseDialog'
+import { PlanDialog } from './PlanDialog'
+import type { PlanKind } from './api'
 import { StrategyDialog } from './StrategyDialog'
 
 const TOOLS = [
@@ -39,6 +42,28 @@ export function AnalyticsPage() {
   const [audienceOpen, setAudienceOpen] = useState(false)
   const [competitorOpen, setCompetitorOpen] = useState(false)
   const [diagnoseOpen, setDiagnoseOpen] = useState(false)
+  const [planKind, setPlanKind] = useState<PlanKind | null>(null)
+
+  const PLANS: { kind: PlanKind; icon: typeof Tv; title: string; desc: string }[] = [
+    {
+      kind: 'campaign',
+      icon: CalendarRange,
+      title: '营销活动策划',
+      desc: '节日 / 大促 / 新品发布的完整方案：目标、创意、排期、分工、预算 KPI。',
+    },
+    {
+      kind: 'liveplan',
+      icon: Tv,
+      title: '直播策划',
+      desc: '流程脚本、关键话术、互动设计与风险预案，按时长出时间轴。',
+    },
+    {
+      kind: 'sponsorship',
+      icon: Handshake,
+      title: '商单方案',
+      desc: '贴品牌需求，出合作提案：解读、创意、交付物、报价逻辑与谈判边界。',
+    },
+  ]
 
   return (
     <div className="view-pad">
@@ -89,10 +114,40 @@ export function AnalyticsPage() {
         />
       </Card>
 
+      <div
+        style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 12 }}
+        data-testid="plan-grid"
+      >
+        {PLANS.map((p) => (
+          <Card key={p.kind} title={p.title} tight>
+            <div className="stack" style={{ gap: 10 }}>
+              <p style={{ margin: 0, fontSize: 12.5, color: 'var(--ink-2)', minHeight: 36 }}>
+                {p.desc}
+              </p>
+              <div>
+                <Button
+                  size="sm"
+                  icon={p.icon}
+                  aria-label={`策划：${p.title}`}
+                  onClick={() => setPlanKind(p.kind)}
+                >
+                  策划
+                </Button>
+              </div>
+            </div>
+          </Card>
+        ))}
+      </div>
+
       <StrategyDialog open={strategyOpen} onClose={() => setStrategyOpen(false)} />
       <AudienceDialog open={audienceOpen} onClose={() => setAudienceOpen(false)} />
       <CompetitorDialog open={competitorOpen} onClose={() => setCompetitorOpen(false)} />
       <DiagnoseDialog open={diagnoseOpen} onClose={() => setDiagnoseOpen(false)} />
+      <PlanDialog
+        open={planKind !== null}
+        kind={planKind ?? 'campaign'}
+        onClose={() => setPlanKind(null)}
+      />
     </div>
   )
 }

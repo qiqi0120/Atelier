@@ -42,7 +42,7 @@ export const NAV_GROUPS: NavGroup[] = [
   {
     label: '输入',
     items: [
-      { to: '/hot', label: '热点发现', icon: Flame, count: 7 },
+      { to: '/hot', label: '热点发现', icon: Flame },
       { to: '/capability', label: '能力地图', icon: Blocks },
     ],
   },

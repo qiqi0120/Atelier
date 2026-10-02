@@ -58,9 +58,9 @@ __all__ = [
 ]
 
 #: SPEC-08 §0 D5 冻结的枚举。``calendar`` 由 SPEC-09（M2-2）按预留位兑现；
-#: ``hot`` 留给 M2-3，写库仍拒。
+#: ``hot`` 由 SPEC-12（M2-3b）兑现——热点素材存入选题库时标记，可溯源。
 STATUS_VALUES: tuple[str, ...] = ("todo", "doing", "done")
-SOURCE_VALUES: tuple[str, ...] = ("manual", "decode", "matrix", "calendar")
+SOURCE_VALUES: tuple[str, ...] = ("manual", "decode", "matrix", "calendar", "hot")
 
 #: AI 产出统一跑的门禁（SPEC-08 §4）。wordcount 不在列：选题不是发布内容，
 #: 钩子的字数判定走 :mod:`hooks` 里的平台口径原语。
@@ -215,7 +215,6 @@ def create_topic(
         raise ValidationError(
             f"source 只允许 {' / '.join(SOURCE_VALUES)}",
             detail={"source": source},
-            hint="hot 来源留给后续批次，当前不接受",
         )
     t = validate_title(title)
     a = _validate_angle(angle)

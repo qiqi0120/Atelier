@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   ArrowRight,
@@ -10,20 +11,30 @@ import {
   MonitorPlay,
   User,
 } from 'lucide-react'
-import { Button, Card, Chip, toast } from '@/components'
+import { Button, Card, Chip, EmptyState, Skeleton, toast } from '@/components'
 import { useAtelier } from '@/lib/store'
+import { discoveryApi } from '@/features/hot/api'
+import type { HotEntry } from '@/features/hot/types'
 
-type Feed = [string, string, string, string]
-
-/** 今日热榜速览（与原型同款占位数据，M2 接 /api/hot 后替换） */
-const FEED: Feed[] = [
-  ['AI 工具越用越笨', '1.2w', '+312%', '抖音'],
-  ['第一批 90 后开始整顿职场', '9820', '+180%', '抖音'],
-  ['iPhone 18 影像提前泄露', '8760', '+92%', '抖音'],
-  ['普通人怎么用 Agent 省钱', '6540', '+76%', '抖音'],
-  ['小红书「反内卷」新规', '4.1w', '+240%', '微博'],
-  ['大学生开始「付费上班」', '2.7w', '+160%', '微博'],
-]
+/** 今日热点速览：SPEC-12 起接真实 /api/discovery/hot（待处理素材，至多 6 条） */
+function useHotFeed() {
+  const [items, setItems] = useState<HotEntry[] | null>(null)
+  useEffect(() => {
+    let alive = true
+    discoveryApi
+      .hot('pending')
+      .then((r) => {
+        if (alive) setItems(r.items.slice(0, 6))
+      })
+      .catch(() => {
+        if (alive) setItems([]) // api 层已 toast；卡片内给空态
+      })
+    return () => {
+      alive = false
+    }
+  }, [])
+  return items
+}
 
 function greet(): string {
   const h = new Date().getHours()
@@ -34,6 +45,7 @@ function greet(): string {
 export function WorkbenchPage() {
   const navigate = useNavigate()
   const fillPrompt = useAtelier((s) => s.fillPrompt)
+  const hotFeed = useHotFeed()
 
   const ask = (text: string) => {
     fillPrompt(text)
@@ -174,7 +186,7 @@ export function WorkbenchPage() {
               </div>
               <div>
                 <b>找选题</b>
-                <span>今日热榜 7 源已更新</span>
+                <span>热点素材池 + 订阅聚合</span>
               </div>
             </button>
             <button type="button" onClick={() => navigate('/analytics')}>
@@ -192,10 +204,10 @@ export function WorkbenchPage() {
 
       <div className="grid2" style={{ alignItems: 'start' }}>
         <Card
-          title="今日热榜速览"
+          title="今日热点速览"
           actions={
             <>
-              <Chip tone="outline">缓存命中 12s 前</Chip>
+              <Chip tone="outline">素材池待处理</Chip>
               <Button size="sm" variant="ghost" onClick={() => navigate('/hot')}>
                 进入发现
               </Button>
@@ -203,34 +215,54 @@ export function WorkbenchPage() {
           }
           bodyStyle={{ padding: '2px 16px 6px' }}
         >
-          {FEED.map(([title, heat, delta, src], i) => (
-            <div className="feed-item" key={title} onClick={() => ask(`帮我把「${title}」写成小红书图文，要 3 张知识卡的量`)}>
-              <span className={`feed-rank ${i < 3 ? 'hot' : ''}`}>{i + 1}</span>
-              <div className="feed-b">
-                <b>{title}</b>
-                <div className="feed-m">
-                  <span className="spark">{heat}</span>
-                  <span>{delta}</span>
-                  <Chip tone="outline" xs>
-                    {src}
-                  </Chip>
-                </div>
-              </div>
-              <Button
-                size="sm"
-                variant="ghost"
-                style={{ opacity: 0 }}
-                onMouseEnter={(e) => (e.currentTarget.style.opacity = '1')}
-                onMouseLeave={(e) => (e.currentTarget.style.opacity = '0')}
-                onClick={(e) => {
-                  e.stopPropagation()
-                  ask(`帮我把「${title}」写成小红书图文，要 3 张知识卡的量`)
-                }}
-              >
-                做成内容
-              </Button>
+          {hotFeed === null ? (
+            <div className="stack" style={{ gap: 8, padding: '10px 0' }}>
+              {[0, 1, 2].map((i) => (
+                <Skeleton key={i} width="90%" height={18} />
+              ))}
             </div>
-          ))}
+          ) : hotFeed.length === 0 ? (
+            <EmptyState
+              icon={<Flame size={22} />}
+              title="热点素材池是空的"
+              description="到「热点发现」导入热点或抓取订阅，攒素材生成日报。"
+              actionLabel="去发现"
+              onAction={() => navigate('/hot')}
+            />
+          ) : (
+            hotFeed.map((e, i) => (
+              <div
+                className="feed-item"
+                key={e.id}
+                onClick={() => ask(`围绕这个热点帮我做一条内容：「${e.title}」。先给 3 个切入角度，再出完整成稿。`)}
+              >
+                <span className={`feed-rank ${i < 3 ? 'hot' : ''}`}>{i + 1}</span>
+                <div className="feed-b">
+                  <b>{e.title}</b>
+                  <div className="feed-m">
+                    <span>{e.entry_date}</span>
+                    <Chip tone="outline" xs>
+                      {e.platform || '未知平台'}
+                    </Chip>
+                    {e.heat ? <span className="spark">{e.heat}</span> : null}
+                  </div>
+                </div>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  style={{ opacity: 0 }}
+                  onMouseEnter={(ev) => (ev.currentTarget.style.opacity = '1')}
+                  onMouseLeave={(ev) => (ev.currentTarget.style.opacity = '0')}
+                  onClick={(ev) => {
+                    ev.stopPropagation()
+                    ask(`围绕这个热点帮我做一条内容：「${e.title}」。先给 3 个切入角度，再出完整成稿。`)
+                  }}
+                >
+                  做成内容
+                </Button>
+              </div>
+            ))
+          )}
         </Card>
 
         <Card

@@ -127,8 +127,9 @@ class TestCrud:
     def test_validation(self, client: TestClient) -> None:
         assert client.post("/api/topics", json={"title": "   "}, headers=JSON).status_code == 422
         assert client.post("/api/topics", json={"title": "长" * 81}, headers=JSON).status_code == 422
-        # SPEC-09 起 source=calendar 放行（SPEC-08 §0 D5 预留位兑现），hot 仍不收
-        r = client.post("/api/topics", json={"title": "x", "source": "hot"}, headers=JSON)
+        # SPEC-09 起 source=calendar 放行（SPEC-08 §0 D5 预留位兑现）；
+        # SPEC-12 起 source=hot 放行（热点素材入库可溯源），非法来源仍 422
+        r = client.post("/api/topics", json={"title": "x", "source": "weibo"}, headers=JSON)
         assert r.status_code == 422 and r.json()["error"]["code"] == "ValidationError"
         # decode 正文只允许 source=decode 携带
         r = client.post("/api/topics", json={"title": "x", "source": "manual", "decode": "## 概括"}, headers=JSON)

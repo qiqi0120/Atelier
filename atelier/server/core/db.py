@@ -41,7 +41,9 @@ __all__ = [
 
 #: SPEC-01 §7 的表清单。skill_runs 为 M1 收尾时补的第 10 张表（见 _apply_v2）；
 #: topics / topic_scores 为 M2-1 选题域补的第 11、12 张（见 _apply_v3，SPEC-08 §1）；
-#: calendar_events 为 M2-2 日历域补的第 13 张（见 _apply_v4，SPEC-09 §1）。
+#: calendar_events 为 M2-2 日历域补的第 13 张（见 _apply_v4，SPEC-09 §1）；
+#: subscriptions / feed_items / hot_entries / hot_digests / algorithm_notes
+#: 为 M2-3b 发现域补的第 14~18 张（见 _apply_v6，SPEC-12 §1）。
 TABLE_NAMES: tuple[str, ...] = (
     "profiles",
     "memories",
@@ -56,9 +58,14 @@ TABLE_NAMES: tuple[str, ...] = (
     "topics",
     "topic_scores",
     "calendar_events",
+    "subscriptions",
+    "feed_items",
+    "hot_entries",
+    "hot_digests",
+    "algorithm_notes",
 )
 
-SCHEMA_VERSION = 5
+SCHEMA_VERSION = 6
 
 _DDL: tuple[str, ...] = (
     """CREATE TABLE IF NOT EXISTS profiles (
@@ -141,6 +148,24 @@ _EXPECTED: dict[str, tuple[str, ...]] = {
     "calendar_events": (
         "id", "title", "date", "end_date", "kind", "note",
         "remind_days", "source", "created_at", "updated_at",
+    ),
+    "subscriptions": (
+        "id", "name", "platform", "kind", "source", "url", "keywords",
+        "notes", "enabled", "last_fetched_at", "created_at", "updated_at",
+    ),
+    "feed_items": (
+        "id", "subscription_id", "title", "url", "summary",
+        "published_at", "fetched_at", "dedup_key",
+    ),
+    "hot_entries": (
+        "id", "title", "source", "platform", "url", "heat", "note",
+        "entry_date", "status", "digest_id", "created_at", "updated_at",
+    ),
+    "hot_digests": (
+        "id", "title", "window_start", "window_end", "markdown", "entry_ids", "created_at",
+    ),
+    "algorithm_notes": (
+        "id", "platform", "noted_at", "change", "impact", "source", "created_at", "updated_at",
     ),
 }
 
@@ -268,6 +293,84 @@ def _apply_v5(conn: sqlite3.Connection) -> None:
     """
 
 
+def _apply_v6(conn: sqlite3.Connection) -> None:
+    """v6 · 发现域 5 张表（M2-3b，SPEC-12 §1）。
+
+    ``subscriptions`` → ``feed_items`` 带 ON DELETE CASCADE（删订阅清其条目）；
+    ``(subscription_id, dedup_key)`` 唯一索引是去重的代码事实（SPEC-12 §0 D4），
+    抓取走 ``INSERT OR IGNORE``。``hot_digests`` 只追加不改。
+    """
+    conn.execute(
+        """CREATE TABLE IF NOT EXISTS subscriptions (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  platform TEXT,
+  kind TEXT NOT NULL,
+  source TEXT NOT NULL,
+  url TEXT,
+  keywords TEXT,
+  notes TEXT,
+  enabled INTEGER NOT NULL DEFAULT 1,
+  last_fetched_at TEXT,
+  created_at TEXT, updated_at TEXT
+)"""
+    )
+    conn.execute(
+        """CREATE TABLE IF NOT EXISTS feed_items (
+  id TEXT PRIMARY KEY,
+  subscription_id TEXT NOT NULL REFERENCES subscriptions(id) ON DELETE CASCADE,
+  title TEXT NOT NULL,
+  url TEXT,
+  summary TEXT,
+  published_at TEXT,
+  fetched_at TEXT NOT NULL,
+  dedup_key TEXT NOT NULL
+)"""
+    )
+    conn.execute(
+        "CREATE UNIQUE INDEX IF NOT EXISTS uidx_feed_dedup ON feed_items(subscription_id, dedup_key)"
+    )
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_feed_sub ON feed_items(subscription_id, fetched_at)")
+    conn.execute(
+        """CREATE TABLE IF NOT EXISTS hot_entries (
+  id TEXT PRIMARY KEY,
+  title TEXT NOT NULL,
+  source TEXT NOT NULL,
+  platform TEXT,
+  url TEXT,
+  heat TEXT,
+  note TEXT,
+  entry_date TEXT,
+  status TEXT NOT NULL DEFAULT 'pending',
+  digest_id TEXT,
+  created_at TEXT, updated_at TEXT
+)"""
+    )
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_hot_status ON hot_entries(status, created_at)")
+    conn.execute(
+        """CREATE TABLE IF NOT EXISTS hot_digests (
+  id TEXT PRIMARY KEY,
+  title TEXT NOT NULL,
+  window_start TEXT,
+  window_end TEXT,
+  markdown TEXT NOT NULL,
+  entry_ids TEXT,
+  created_at TEXT
+)"""
+    )
+    conn.execute(
+        """CREATE TABLE IF NOT EXISTS algorithm_notes (
+  id TEXT PRIMARY KEY,
+  platform TEXT NOT NULL,
+  noted_at TEXT NOT NULL,
+  change TEXT NOT NULL,
+  impact TEXT,
+  source TEXT,
+  created_at TEXT, updated_at TEXT
+)"""
+    )
+
+
 #: 版本号 → 迁移步骤。新增版本时只往这里加一项，不要动老步骤（SPEC-01 §7 幂等）。
 _MIGRATIONS: dict[int, Callable[[sqlite3.Connection], None]] = {
     1: _apply_v1,
@@ -275,6 +378,7 @@ _MIGRATIONS: dict[int, Callable[[sqlite3.Connection], None]] = {
     3: _apply_v3,
     4: _apply_v4,
     5: _apply_v5,
+    6: _apply_v6,
 }
 
 _local = threading.local()

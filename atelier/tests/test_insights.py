@@ -260,3 +260,81 @@ class TestDiagnose:
         }, ensure_ascii=False)]
         r = client.post("/api/analytics/diagnose", json={}, headers=JSON)
         assert r.status_code == 422 and r.json()["error"]["code"] == "GateBlocked"
+
+
+# ---------------------------------------------------------------- SPEC-12 §3 策划域 P3
+
+
+def _md(*sections: str) -> str:
+    return "\n".join(f"## {s}\n\n内容。" for s in sections)
+
+
+class TestCampaignP3:
+    """SPEC-12 §3 · F-E15 营销活动策划（5 段 markdown，不落库）。"""
+
+    def test_short_theme_rejected_before_model(self, client: TestClient, fake: ScriptedHarness) -> None:
+        r = client.post("/api/analytics/campaign", json={"theme": "促"}, headers=JSON)
+        assert r.status_code == 422 and fake.requests == []
+
+    def test_success_and_session_prefix(self, client: TestClient, fake: ScriptedHarness) -> None:
+        fake.outputs = [_md("活动目标", "主题创意", "节奏排期", "渠道分工", "预算与KPI")]
+        r = client.post(
+            "/api/analytics/campaign", json={"theme": "双11 好物节", "occasion": "电商大促"}, headers=JSON
+        )
+        assert r.status_code == 200, r.text
+        body = r.json()
+        assert all(body["sections"].values()) and len(body["sections"]) == 5
+        assert body["gate_report"]["blocked"] is False
+        assert fake.requests[0].session_id.startswith("insights-campaign-")
+        assert "双11" in fake.requests[0].prompt and "电商大促" in fake.requests[0].prompt
+
+    def test_missing_section_422(self, client: TestClient, fake: ScriptedHarness) -> None:
+        fake.outputs = [_md("活动目标", "主题创意", "节奏排期")]
+        r = client.post("/api/analytics/campaign", json={"theme": "新品首发"}, headers=JSON)
+        assert r.status_code == 422 and r.json()["error"]["code"] == "InsightsIncomplete"
+        assert set(r.json()["error"]["detail"]["missing"]) == {"渠道分工", "预算与KPI"}
+
+
+class TestLiveplanP3:
+    """SPEC-12 §3 · F-E16 直播策划。"""
+
+    def test_success(self, client: TestClient, fake: ScriptedHarness) -> None:
+        fake.outputs = [_md("直播目标", "流程脚本", "话术要点", "互动设计", "风险预案")]
+        r = client.post(
+            "/api/analytics/liveplan", json={"topic": "读书会连麦", "duration": "60 分钟"}, headers=JSON
+        )
+        assert r.status_code == 200
+        assert all(r.json()["sections"].values())
+        assert fake.requests[0].session_id.startswith("insights-liveplan-")
+        assert "60 分钟" in fake.requests[0].prompt
+
+    def test_missing_topic_422(self, client: TestClient, fake: ScriptedHarness) -> None:
+        assert client.post("/api/analytics/liveplan", json={"topic": ""}, headers=JSON).status_code == 422
+        assert fake.requests == []
+
+
+class TestSponsorshipP3:
+    """SPEC-12 §3 · F-E17 品牌合作方案。"""
+
+    def test_short_brief_rejected(self, client: TestClient, fake: ScriptedHarness) -> None:
+        r = client.post("/api/analytics/sponsorship", json={"brief": "太短"}, headers=JSON)
+        assert r.status_code == 422 and fake.requests == []
+
+    def test_success_with_brand(self, client: TestClient, fake: ScriptedHarness) -> None:
+        fake.outputs = [_md("合作解读", "创意方案", "内容形式", "报价建议", "风险与边界")]
+        r = client.post(
+            "/api/analytics/sponsorship",
+            json={"brief": "某耳机品牌想投一条小红书图文，主打降噪卖点，预算 3000 元。", "brand": "某耳机"},
+            headers=JSON,
+        )
+        assert r.status_code == 200
+        assert all(r.json()["sections"].values())
+        assert fake.requests[0].session_id.startswith("insights-sponsorship-")
+        assert "某耳机" in fake.requests[0].prompt
+
+    def test_block(self, client: TestClient, fake: ScriptedHarness) -> None:
+        fake.outputs = [_md("合作解读：全网最好", "创意方案", "内容形式", "报价建议", "风险与边界")]
+        r = client.post(
+            "/api/analytics/sponsorship", json={"brief": "品牌需求足够长的一段话，用来通过校验门槛。"}, headers=JSON
+        )
+        assert r.status_code == 422 and r.json()["error"]["code"] == "GateBlocked"

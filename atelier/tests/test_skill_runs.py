@@ -104,7 +104,7 @@ def test_migration_v1_to_v2_adds_skill_runs(tmp_path: Path) -> None:
         assert db.schema_version(conn) == db.SCHEMA_VERSION
         assert "skill_runs" in db.table_names(conn)
         # v1 的 9 张 + v2 的 skill_runs + v3 的 topics/topic_scores + v4 的 calendar_events
-        assert len(db.table_names(conn)) == 13
+        assert len(db.table_names(conn)) == 18  # v6 起含发现域 5 张表（SPEC-12）
 
         # 老数据没被动过
         assert len(conn.execute("SELECT * FROM settings").fetchall()) == 0

@@ -192,3 +192,56 @@ describe('数据复盘 · 门禁 BLOCK（PRD 原则二）', () => {
     expect(within(dialog).getByRole('alert')).toHaveTextContent('改法：改成「少见的」这类可验证表述')
   })
 })
+
+describe('数据复盘 · 策划域 P3（SPEC-12 §3）', () => {
+  it('渲染三张策划卡', () => {
+    renderPage()
+    const grid = screen.getByTestId('plan-grid')
+    for (const title of ['营销活动策划', '直播策划', '商单方案']) {
+      expect(within(grid).getByText(title)).toBeInTheDocument()
+    }
+  })
+
+  it('营销策划弹层发请求体（theme + occasion）', async () => {
+    const user = userEvent.setup()
+    apiMock.post.mockResolvedValueOnce({
+      markdown: '## 活动目标\n\nx',
+      sections: {},
+      gate_report: { blocked: false, items: [], failed: 0, warnings: 0 },
+    })
+    renderPage()
+    await user.click(screen.getByRole('button', { name: '策划：营销活动策划' }))
+    const dialog = await screen.findByRole('dialog')
+    await user.type(within(dialog).getByLabelText('活动主题 *'), '双11 好物节')
+    await user.type(within(dialog).getByLabelText('场景（可选）'), '电商大促')
+    await user.click(within(dialog).getByRole('button', { name: '生成方案' }))
+    await waitFor(() =>
+      expect(apiMock.post).toHaveBeenCalledWith(
+        '/analytics/campaign',
+        expect.objectContaining({ theme: '双11 好物节', occasion: '电商大促' }),
+        expect.anything(),
+      ),
+    )
+  })
+
+  it('缺段 422：弹层内展示改法（不硬编补段）', async () => {
+    const user = userEvent.setup()
+    apiMock.post.mockRejectedValueOnce(
+      new ApiErrorMock(
+        'InsightsIncomplete',
+        422,
+        '营销方案缺段：渠道分工、预算与KPI',
+        { missing: ['渠道分工', '预算与KPI'] },
+        '重试一次；连续失败就把任务拆小或换模型',
+      ),
+    )
+    renderPage()
+    await user.click(screen.getByRole('button', { name: '策划：营销活动策划' }))
+    const dialog = await screen.findByRole('dialog')
+    await user.type(within(dialog).getByLabelText('活动主题 *'), '新年企划')
+    await user.click(within(dialog).getByRole('button', { name: '生成方案' }))
+    const alert = await within(dialog).findByRole('alert')
+    expect(alert).toHaveTextContent('缺段')
+    expect(alert).toHaveTextContent('重试一次')  // hint 一并展示（describeError 格式）
+  })
+})

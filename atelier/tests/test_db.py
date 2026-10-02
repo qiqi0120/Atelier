@@ -18,6 +18,8 @@ EXPECTED_TABLES = {
     "publish_drafts", "publish_records", "platform_creds", "settings",
     "skill_runs", "topics", "topic_scores",  # v3：M2-1 选题域（SPEC-08 §1）
     "calendar_events",  # v4：M2-2 日历域（SPEC-09 §1）
+    "subscriptions", "feed_items", "hot_entries", "hot_digests",
+    "algorithm_notes",  # v6：M2-3b 发现域（SPEC-12 §1）
 }
 
 
@@ -44,8 +46,8 @@ class TestSchema:
 
     def test_schema_version_recorded(self, atelier_root: Path) -> None:
         conn = db.init_db()
-        # M2 收尾起为 v5（publish_drafts.topic_id/scheduled_date，SPEC-10 §1）；升级版本时同步改这里
-        assert db.schema_version(conn) == db.SCHEMA_VERSION == 5
+        # M2-3b 起为 v6（发现域 5 张表，SPEC-12 §1）；升级版本时同步改这里
+        assert db.schema_version(conn) == db.SCHEMA_VERSION == 6
 
     def test_migration_is_idempotent(self, atelier_root: Path) -> None:
         conn = db.init_db()

@@ -29,7 +29,7 @@ export type CreateTopicBody = {
   title: string
   angle?: string
   profile_id?: string
-  source?: 'manual' | 'decode' | 'matrix' | 'calendar'
+  source?: 'manual' | 'decode' | 'matrix' | 'calendar' | 'hot'
   source_ref?: string
   decode?: string
   due_date?: string
