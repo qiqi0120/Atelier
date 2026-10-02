@@ -1,0 +1,54 @@
+# ── Python ──────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+build/
+dist/
+*.so
+
+# 虚拟环境
+.venv/
+venv/
+env/
+
+# ── Node / 前端 ─────────────────────────────────────────
+node_modules/
+web/dist/
+web/.vite/
+*.tsbuildinfo
+npm-debug.log*
+pnpm-debug.log*
+yarn-error.log*
+
+# ── 运行期数据（唯一真相源在文件系统，不入库）────────────
+# 产物：内容库的唯一真相源，属于你的内容，不该进版本库
+outputs/
+# 画像 md：用户数据，可手改，但属个人资料
+profiles/
+# SQLite / 会话落盘 / 日志 / 加密密钥
+var/
+*.db
+*.sqlite3
+*.jsonl
+# 会话与产物索引
+.index.json
+.session/
+
+# ── 密钥（任何形态都不许进库）──────────────────────────
+.env
+.env.*
+*.pem
+*.key
+secrets.enc
+*.local
+
+# ── 系统 ────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/
+*.log

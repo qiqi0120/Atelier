@@ -1,0 +1,104 @@
+# 能力地图（SPEC-04 §3）
+#
+# 4 个分组按用户目标组织，不是按文件格式。
+# 顺序 = 本文件中 [groups] 的出现顺序。
+#
+# item 字段：
+#   id      必填。kind="skill" 时必须等于某个技能目录名，否则视为死链被丢弃
+#   kind    "skill"（默认，绑定技能）| "chat"（纯对话能力，无 run.py，skill_id=null）
+#   group   必须是 [groups] 里已定义的分组名
+#   maturity 仅 kind="chat" 需要；kind="skill" 的 maturity 一律从技能继承
+
+[groups]
+"做内容 · 要成品" = { desc = "给一句主题，产出能直接发的东西" }
+"做运营 · 要动作" = { desc = "把「今天发什么」变成明确的下一步" }
+"做账号 · 要增长" = { desc = "用真实数据反过来改内容" }
+"做系统 · 要配置" = { desc = "工具坏了、缺密钥、想体检时用" }
+
+# ---------------------------------------------------------- 做内容 · 要成品
+
+[[items]]
+id = "xhs-card"
+group = "做内容 · 要成品"
+icon = "layout"
+
+[[items]]
+id = "social-copy"
+group = "做内容 · 要成品"
+icon = "pen"
+
+[[items]]
+id = "de-ai"
+group = "做内容 · 要成品"
+icon = "wand"
+
+[[items]]
+id = "style-transfer"
+group = "做内容 · 要成品"
+icon = "swap"
+
+[[items]]
+id = "crop"
+group = "做内容 · 要成品"
+icon = "scissors"
+
+[[items]]
+id = "wechat-layout"
+group = "做内容 · 要成品"
+icon = "align"
+
+[[items]]
+id = "one-video"
+group = "做内容 · 要成品"
+icon = "video"
+
+[[items]]
+id = "aigc-image"
+group = "做内容 · 要成品"
+icon = "image"
+
+# ---------------------------------------------------------- 做运营 · 要动作
+
+[[items]]
+id = "viral-decode"
+group = "做运营 · 要动作"
+icon = "search"
+
+[[items]]
+id = "precheck"
+group = "做运营 · 要动作"
+icon = "check"
+
+# ---------------------------------------------------------- 做账号 · 要增长
+# M1 不做归因（F-G32~F-G36 属 M5），这里显式暴露 v3「接入中」，
+# 让用户看得见「这件事在路线图上、但还没做」，而不是找不到。
+
+[[items]]
+id = "attr-review"
+kind = "chat"
+group = "做账号 · 要增长"
+name = "复盘数据改下一篇"
+trigger = "当你说「复盘一下」「这篇为什么数据差」时使用"
+maturity = "v3"
+icon = "chart"
+
+[[items]]
+id = "bench-account"
+kind = "chat"
+group = "做账号 · 要增长"
+name = "找对标账号看结构"
+trigger = "当你说「对标账号」「同行怎么做的」时使用"
+maturity = "v3"
+icon = "compass"
+
+# ---------------------------------------------------------- 做系统 · 要配置
+
+[[items]]
+id = "gate-explain"
+group = "做系统 · 要配置"
+icon = "shield"
+
+[[items]]
+id = "doctor"
+group = "做系统 · 要配置"
+icon = "stethoscope"

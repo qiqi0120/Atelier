@@ -1,0 +1,2667 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Atelier · 内容工作台 UI 原型 v1</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#fafaf9; --surface:#fff; --surface-2:#f6f5f3; --surface-3:#efeeeb;
+  --line:#e7e5e3; --line-soft:#f0efed;
+  --ink:#1c1917; --ink-2:#57534e; --ink-3:#78716c; --muted:#a8a29e;
+  --accent:#10b981; --accent-ink:#047857; --accent-soft:rgba(16,185,129,.10); --accent-line:rgba(16,185,129,.28);
+  --warn:#f59e0b; --warn-ink:#b45309; --warn-soft:rgba(245,158,11,.12);
+  --danger:#f43f5e; --danger-ink:#be123c; --danger-soft:rgba(244,63,94,.09);
+  --info:#3b82f6; --info-ink:#1d4ed8; --info-soft:rgba(59,130,246,.09);
+  --r:14px; --r-sm:10px; --r-xs:7px;
+  --sh:0 1px 2px rgba(0,0,0,.04), 0 4px 14px -4px rgba(0,0,0,.06);
+  --sh-lg:0 8px 32px -8px rgba(0,0,0,.14);
+  --sans:'Outfit','PingFang SC','Hiragino Sans GB','Microsoft YaHei',sans-serif;
+  --mono:'JetBrains Mono',ui-monospace,SFMono-Regular,monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:14px;line-height:1.55;-webkit-font-smoothing:antialiased}
+button,input,textarea,select{font:inherit;color:inherit}
+button{background:none;border:0;cursor:pointer}
+a{color:inherit;text-decoration:none}
+::-webkit-scrollbar{width:9px;height:9px}
+::-webkit-scrollbar-thumb{background:#dedbd7;border-radius:9px;border:2px solid transparent;background-clip:content-box}
+::-webkit-scrollbar-thumb:hover{background:#c9c5c0;background-clip:content-box}
+svg{flex:none}
+
+/* ============ shell ============ */
+.app{display:grid;grid-template-columns:236px 1fr;height:100dvh;overflow:hidden}
+.sidebar{background:var(--surface);border-right:1px solid var(--line);display:flex;flex-direction:column;min-height:0}
+.brand{display:flex;align-items:center;gap:9px;padding:16px 18px 14px}
+.brand-mark{width:26px;height:26px;border-radius:8px;background:linear-gradient(140deg,#10b981,#0d9488);display:grid;place-items:center;color:#fff;box-shadow:0 2px 8px rgba(16,185,129,.3)}
+.brand-name{font-weight:600;letter-spacing:-.01em;font-size:15px}
+.brand-ver{font-family:var(--mono);font-size:10px;color:var(--muted);padding:1px 5px;border:1px solid var(--line);border-radius:5px}
+
+.side-scroll{flex:1;overflow-y:auto;padding:4px 10px 10px}
+.nav-group{margin-top:12px}
+.nav-label{font-size:10.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);padding:6px 8px;font-weight:600}
+.nav-item{display:flex;align-items:center;gap:9px;padding:7px 9px;border-radius:var(--r-xs);color:var(--ink-2);font-size:13.5px;width:100%;text-align:left;transition:background .15s,color .15s;position:relative}
+.nav-item:hover{background:var(--surface-2);color:var(--ink)}
+.nav-item.on{background:var(--accent-soft);color:var(--accent-ink);font-weight:500}
+.nav-item .cnt{margin-left:auto;font-family:var(--mono);font-size:10.5px;color:var(--muted);background:var(--surface-2);border-radius:20px;padding:0 6px;min-width:19px;text-align:center}
+.nav-item.on .cnt{background:rgba(16,185,129,.16);color:var(--accent-ink)}
+.nav-item .dot{width:6px;height:6px;border-radius:50%;background:var(--warn);margin-left:auto}
+
+.side-foot{border-top:1px solid var(--line);padding:10px}
+.prof-pick{display:flex;align-items:center;gap:9px;width:100%;padding:7px;border-radius:var(--r-sm);transition:background .15s}
+.prof-pick:hover{background:var(--surface-2)}
+.avatar{width:28px;height:28px;border-radius:9px;display:grid;place-items:center;font-size:12px;font-weight:600;color:#fff;background:linear-gradient(140deg,#6366f1,#0ea5e9);flex:none}
+.avatar.g{background:linear-gradient(140deg,#10b981,#0d9488)}
+.avatar.w{background:linear-gradient(140deg,#f59e0b,#f43f5e)}
+.prof-pick .t{text-align:left;min-width:0;flex:1}
+.prof-pick .t b{display:block;font-size:12.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.prof-pick .t span{font-size:10.5px;color:var(--muted);display:flex;align-items:center;gap:4px}
+.live-dot{width:5px;height:5px;border-radius:50%;background:var(--accent)}
+
+.main{display:flex;flex-direction:column;min-width:0;min-height:0;background:var(--bg)}
+.topbar{height:56px;flex:none;background:rgba(255,255,255,.82);backdrop-filter:blur(10px);border-bottom:1px solid var(--line);display:flex;align-items:center;gap:12px;padding:0 20px}
+.crumb{font-size:13.5px;color:var(--muted);display:flex;align-items:center;gap:7px;min-width:0}
+.crumb b{color:var(--ink);font-weight:600}
+.top-right{margin-left:auto;display:flex;align-items:center;gap:8px}
+.views{flex:1;min-height:0;position:relative}
+.view{position:absolute;inset:0;overflow-y:auto;display:none}
+.view.on{display:block}
+.view-pad{padding:22px 24px 40px;max-width:1180px;margin:0 auto}
+.view.full{display:none}
+.view.full.on{display:flex;flex-direction:column;min-height:0}
+
+/* ============ primitives ============ */
+.btn{display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 12px;border-radius:var(--r-xs);font-size:13px;font-weight:500;border:1px solid var(--line);background:var(--surface);color:var(--ink-2);transition:all .15s;white-space:nowrap}
+.btn:hover{border-color:#d6d2cd;color:var(--ink);transform:translateY(-.5px)}
+.btn:active{transform:translateY(0)}
+.btn.pri{background:var(--accent);border-color:var(--accent);color:#fff;box-shadow:0 1px 6px rgba(16,185,129,.25)}
+.btn.pri:hover{background:#0ea371;border-color:#0ea371}
+.btn.ghost{border-color:transparent;background:transparent}
+.btn.ghost:hover{background:var(--surface-2)}
+.btn.sm{height:27px;padding:0 9px;font-size:12px}
+.btn.lg{height:38px;padding:0 16px;font-size:14px}
+.btn:disabled{opacity:.45;cursor:not-allowed;transform:none!important;border-color:var(--line)}
+.btn.danger{color:var(--danger-ink);border-color:rgba(244,63,94,.3)}
+.btn.danger:hover{background:var(--danger-soft)}
+
+.page-head{display:flex;align-items:flex-end;gap:14px;margin-bottom:18px;flex-wrap:wrap}
+.page-head h1{font-size:21px;font-weight:600;letter-spacing:-.015em}
+.page-head p{font-size:13px;color:var(--ink-3);margin-top:2px}
+.page-head .sp{margin-left:auto;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--sh)}
+.card-h{display:flex;align-items:center;gap:9px;padding:13px 16px;border-bottom:1px solid var(--line-soft)}
+.card-h h3{font-size:14px;font-weight:600;letter-spacing:-.01em}
+.card-h .sp{margin-left:auto;display:flex;gap:6px;align-items:center}
+.card-b{padding:16px}
+.card-b.tight{padding:12px}
+
+.chip{display:inline-flex;align-items:center;gap:5px;height:22px;padding:0 8px;border-radius:20px;background:var(--surface-2);color:var(--ink-2);font-size:11.5px;font-weight:500;white-space:nowrap}
+.chip.a{background:var(--accent-soft);color:var(--accent-ink)}
+.chip.w{background:var(--warn-soft);color:var(--warn-ink)}
+.chip.d{background:var(--danger-soft);color:var(--danger-ink)}
+.chip.i{background:var(--info-soft);color:var(--info-ink)}
+.chip.o{border:1px solid var(--line);background:transparent;color:var(--ink-3)}
+.chip.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+.chip.mono{font-family:var(--mono);font-size:10.5px}
+.chip .x{opacity:.6;cursor:pointer}
+.chip .x:hover{opacity:1}
+
+.mut{color:var(--ink-3)}.mut2{color:var(--muted)}
+.mono{font-family:var(--mono)}
+.hr{height:1px;background:var(--line-soft);margin:14px 0}
+.row{display:flex;align-items:center;gap:8px}
+.wrap{display:flex;flex-wrap:wrap;gap:7px}
+.stack{display:flex;flex-direction:column;gap:12px}
+.lbl{font-size:11px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}
+
+.inp{width:100%;height:34px;padding:0 11px;border:1px solid var(--line);border-radius:var(--r-xs);background:var(--surface);font-size:13px;transition:all .15s}
+.inp:focus{outline:none;border-color:var(--accent-line);box-shadow:0 0 0 3px var(--accent-soft)}
+.inp::placeholder{color:var(--muted)}
+textarea.inp{height:auto;padding:9px 11px;line-height:1.6;resize:vertical;min-height:76px}
+.field{display:flex;flex-direction:column;gap:6px}
+.field > label{font-size:12px;font-weight:500;color:var(--ink-2)}
+.help{font-size:11.5px;color:var(--muted);line-height:1.5}
+
+.tabs{display:flex;gap:2px;padding:3px;background:var(--surface-2);border-radius:var(--r-sm);width:fit-content;max-width:100%;overflow-x:auto}
+.tab{padding:5px 12px;border-radius:var(--r-xs);font-size:13px;color:var(--ink-3);font-weight:500;white-space:nowrap;transition:all .15s}
+.tab:hover{color:var(--ink)}
+.tab.on{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.05)}
+
+.badge{width:16px;height:16px;border-radius:50%;display:inline-grid;place-items:center;font-size:11px;font-weight:700}
+.badge.w{background:var(--warn);color:#fff}
+.badge.d{background:var(--danger);color:#fff}
+
+.empty{text-align:center;padding:34px 20px;color:var(--muted)}
+.empty h4{font-size:14px;color:var(--ink-2);font-weight:600;margin-bottom:3px}
+.empty p{font-size:12.5px;max-width:320px;margin:0 auto;line-height:1.6}
+
+.kpi{display:flex;flex-direction:column;gap:2px}
+.kpi b{font-size:23px;font-weight:600;letter-spacing:-.02em;font-family:var(--mono)}
+.kpi span{font-size:11.5px;color:var(--ink-3)}
+.delta{font-size:11.5px;font-weight:600;display:inline-flex;align-items:center;gap:2px}
+.delta.up{color:var(--accent-ink)}.delta.dn{color:var(--danger-ink)}
+
+.grid2{display:grid;grid-template-columns:repeat(2,1fr);gap:14px}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+.grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+@media(max-width:1000px){.grid4{grid-template-columns:repeat(2,1fr)}.grid3{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:768px){.grid2,.grid3,.grid4{grid-template-columns:1fr}}
+
+/* ============ 工作台 ============ */
+.hero{padding:20px;border-radius:var(--r);background:linear-gradient(120deg,#fff,#f4fbf8);border:1px solid var(--line);display:flex;gap:18px;align-items:center;flex-wrap:wrap}
+.hero h2{font-size:19px;font-weight:600;letter-spacing:-.015em}
+.hero p{font-size:13px;color:var(--ink-3);margin-top:3px}
+.hero-r{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap}
+.stat-row{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+@media(max-width:1000px){.stat-row{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:560px){.stat-row{grid-template-columns:1fr}}
+.task{display:flex;align-items:center;gap:11px;padding:10px 0;border-bottom:1px solid var(--line-soft);cursor:pointer;transition:background .15s}
+.task:last-child{border-bottom:0}
+.task:hover{background:var(--surface-2)}
+.task .ti{width:26px;height:26px;border-radius:8px;display:grid;place-items:center;background:var(--surface-2);color:var(--ink-2);flex:none}
+.task .tx{flex:1;min-width:0}
+.task .tx b{display:block;font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.task .tx span{font-size:11.5px;color:var(--muted)}
+.quick{display:grid;grid-template-columns:repeat(2,1fr);gap:9px}
+.quick button{display:flex;align-items:center;gap:9px;padding:11px;border:1px solid var(--line);border-radius:var(--r-sm);background:var(--surface);text-align:left;transition:all .18s}
+.quick button:hover{border-color:var(--accent-line);transform:translateY(-1px);box-shadow:var(--sh)}
+.quick button b{font-size:13px;font-weight:500;display:block}
+.quick button span{font-size:11px;color:var(--muted)}
+.qi{width:28px;height:28px;border-radius:8px;background:var(--accent-soft);color:var(--accent-ink);display:grid;place-items:center;flex:none}
+.feed-item{padding:11px 0;border-bottom:1px solid var(--line-soft);display:flex;gap:10px;align-items:flex-start;cursor:pointer}
+.feed-item:hover{background:var(--surface-2)}
+.feed-rank{font-family:var(--mono);font-size:11px;color:var(--muted);width:16px;flex:none;padding-top:1px}
+.feed-rank.hot{color:var(--danger);font-weight:600}
+.feed-b{flex:1;min-width:0}
+.feed-b b{font-size:13px;font-weight:500;display:block;line-height:1.45}
+.feed-m{display:flex;gap:7px;align-items:center;margin-top:3px;font-size:11px;color:var(--muted)}
+
+/* ============ 对话 ============ */
+.chat-wrap{display:flex;min-height:0;flex:1;width:100%}
+.chat-side{width:216px;flex:none;border-right:1px solid var(--line);display:flex;flex-direction:column;min-height:0;background:var(--surface)}
+.chat-main{flex:1;display:flex;flex-direction:column;min-width:0;min-height:0;position:relative}
+.sess{padding:8px 10px;border-radius:var(--r-xs);cursor:pointer;transition:background .15s;position:relative}
+.sess:hover{background:var(--surface-2)}
+.sess.on{background:var(--accent-soft)}
+.sess b{font-size:12.5px;font-weight:500;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sess span{font-size:10.5px;color:var(--muted)}
+.sess .act{position:absolute;right:6px;top:50%;transform:translateY(-50%);display:none;gap:2px}
+.sess:hover .act{display:flex}
+.sess .act button{width:22px;height:22px;border-radius:6px;display:grid;place-items:center;color:var(--muted)}
+.sess .act button:hover{background:rgba(0,0,0,.05);color:var(--ink)}
+
+.msgs{flex:1;overflow-y:auto;padding:24px 0 8px;min-height:0}
+.msgs-in{max-width:760px;margin:0 auto;padding:0 24px;display:flex;flex-direction:column;gap:20px}
+.msg{display:flex;gap:11px;animation:fade .3s ease}
+@keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.msg .who{width:26px;height:26px;border-radius:8px;flex:none;display:grid;place-items:center;font-size:11px;font-weight:600;color:#fff}
+.msg .bd{min-width:0;flex:1}
+.msg.u .who{background:linear-gradient(140deg,#6366f1,#0ea5e9)}
+.msg.a .who{background:linear-gradient(140deg,#10b981,#0d9488)}
+.msg .nm{font-size:11.5px;color:var(--muted);margin-bottom:4px;display:flex;align-items:center;gap:6px}
+.bubble{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px 14px;font-size:14px;line-height:1.68;box-shadow:var(--sh)}
+.msg.u .bubble{background:var(--surface-2);border-color:transparent;box-shadow:none}
+.bubble p+p{margin-top:9px}
+.bubble ul{margin:7px 0 0;padding-left:19px}
+.bubble li{margin:3px 0}
+.bubble b{font-weight:600}
+.bubble code{font-family:var(--mono);font-size:12px;background:var(--surface-2);padding:1px 5px;border-radius:5px}
+.bubble .h{font-weight:600;font-size:14px;margin:12px 0 5px;display:flex;align-items:center;gap:6px}
+.bubble .h:first-child{margin-top:0}
+.think{border:1px solid var(--line-soft);border-radius:10px;background:var(--surface-2);margin-bottom:9px;overflow:hidden}
+.think summary{padding:7px 11px;font-size:12px;color:var(--ink-3);cursor:pointer;list-style:none;display:flex;align-items:center;gap:6px;user-select:none}
+.think summary::-webkit-details-marker{display:none}
+.think .tb{padding:0 11px 9px;font-size:12px;color:var(--ink-3);line-height:1.65;font-family:var(--mono);font-size:11px;white-space:pre-wrap;border-top:1px solid var(--line-soft);padding-top:8px}
+.caret{display:inline-block;width:6px;height:14px;background:var(--accent);vertical-align:-2px;animation:bl .9s steps(2) infinite;border-radius:1px}
+@keyframes bl{50%{opacity:0}}
+
+.qcard{border:1px solid var(--accent-line);background:linear-gradient(180deg,rgba(16,185,129,.05),rgba(16,185,129,.02));border-radius:12px;padding:13px 14px;margin-top:11px}
+.qcard .qt{font-size:12.5px;font-weight:600;display:flex;align-items:center;gap:6px;margin-bottom:9px}
+.qopts{display:flex;flex-direction:column;gap:7px}
+.qopt{display:flex;align-items:center;gap:9px;padding:8px 11px;border:1px solid var(--line);border-radius:var(--r-xs);background:var(--surface);font-size:13px;cursor:pointer;transition:all .15s;text-align:left;width:100%}
+.qopt:hover{border-color:var(--accent);background:var(--accent-soft)}
+.qopt .k{width:17px;height:17px;border-radius:5px;border:1px solid var(--line);display:grid;place-items:center;font-family:var(--mono);font-size:10px;color:var(--muted);flex:none}
+.qopt.picked{border-color:var(--accent);background:var(--accent-soft)}
+.qopt.picked .k{background:var(--accent);border-color:var(--accent);color:#fff}
+.qopt.locked{opacity:.5;pointer-events:none}
+.qdone{font-size:12px;color:var(--accent-ink);display:flex;align-items:center;gap:6px;padding:6px 2px}
+
+.att{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:9px}
+.att .f{display:flex;align-items:center;gap:7px;padding:5px 9px 5px 6px;background:var(--surface-2);border:1px solid var(--line);border-radius:8px;font-size:12px;color:var(--ink-2)}
+.att .f .th{width:22px;height:22px;border-radius:6px;display:grid;place-items:center;font-family:var(--mono);font-size:9px;color:#fff;font-weight:600}
+.artifact{margin-top:11px;border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--surface)}
+.artifact .ah{display:flex;align-items:center;gap:8px;padding:9px 12px;background:var(--surface-2);border-bottom:1px solid var(--line-soft);font-size:12px;font-weight:600}
+.artifact .ab{padding:11px 12px}
+.path{font-family:var(--mono);font-size:11.5px;color:var(--accent-ink);background:var(--accent-soft);padding:1px 6px;border-radius:5px;cursor:pointer;transition:background .15s}
+.path:hover{background:rgba(16,185,129,.2)}
+.gate{margin-top:9px;border:1px solid var(--line);border-radius:10px;overflow:hidden;font-size:12px}
+.gate .gh{display:flex;align-items:center;gap:7px;padding:7px 11px;background:var(--surface-2);font-weight:600;font-size:12px}
+.gate .gi{display:flex;align-items:center;gap:8px;padding:6px 11px;border-top:1px solid var(--line-soft);font-size:12px;color:var(--ink-2)}
+.gate .gi .s{margin-left:auto;font-size:11px;font-family:var(--mono)}
+
+.composer{border-top:1px solid var(--line);background:rgba(255,255,255,.9);backdrop-filter:blur(10px);padding:12px 24px 16px}
+.composer-in{max-width:760px;margin:0 auto}
+.cbox{border:1px solid var(--line);border-radius:14px;background:var(--surface);box-shadow:var(--sh);transition:all .18s;overflow:hidden}
+.cbox:focus-within{border-color:var(--accent-line);box-shadow:0 0 0 3px var(--accent-soft),var(--sh)}
+.cbox.drag{border-color:var(--accent);background:var(--accent-soft)}
+.cbox textarea{width:100%;border:0;outline:none;resize:none;padding:12px 14px 4px;font-size:14px;line-height:1.6;background:transparent;max-height:200px;min-height:52px}
+.cbox textarea::placeholder{color:var(--muted)}
+.cbar{display:flex;align-items:center;gap:7px;padding:7px 10px 9px}
+.iconbtn{width:30px;height:30px;border-radius:8px;display:grid;place-items:center;color:var(--ink-3);transition:all .15s}
+.iconbtn:hover{background:var(--surface-2);color:var(--ink)}
+.iconbtn.rec{color:var(--danger)}
+.typing{font-size:11.5px;color:var(--muted);display:flex;align-items:center;gap:6px}
+.typing .d{width:5px;height:5px;border-radius:50%;background:var(--accent);animation:bn 1.2s infinite}
+.typing .d:nth-child(2){animation-delay:.18s}.typing .d:nth-child(3){animation-delay:.36s}
+@keyframes bn{0%,60%,100%{opacity:.28;transform:translateY(0)}30%{opacity:1;transform:translateY(-3px)}}
+.stopbtn{display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 11px;border-radius:8px;background:var(--ink);color:#fff;font-size:12.5px;font-weight:500}
+.stopbtn:hover{background:#000}
+.hb30{position:absolute;right:22px;bottom:12px;font-size:11px;color:var(--muted);background:var(--surface);border:1px solid var(--line);padding:3px 9px;border-radius:20px;box-shadow:var(--sh);animation:fade .3s}
+.scn{display:grid;grid-template-columns:repeat(2,1fr);gap:9px}
+@media(max-width:768px){.scn{grid-template-columns:1fr}}
+.scn button{padding:13px;border:1px solid var(--line);border-radius:var(--r-sm);background:var(--surface);text-align:left;transition:all .18s}
+.scn button:hover{border-color:var(--accent-line);transform:translateY(-1px);box-shadow:var(--sh)}
+.scn b{font-size:13px;font-weight:600;display:flex;align-items:center;gap:7px;margin-bottom:2px}
+.scn span{font-size:11.5px;color:var(--ink-3);line-height:1.5;display:block}
+
+/* ============ 能力地图 ============ */
+.cap-grp{margin-bottom:20px}
+.cap-grp-h{display:flex;align-items:center;gap:9px;margin-bottom:11px;padding-bottom:9px;border-bottom:1px solid var(--line-soft)}
+.cap-grp-h h3{font-size:15px;font-weight:600;letter-spacing:-.01em}
+.cap-grp-h .sp{margin-left:auto;display:flex;gap:6px;align-items:center}
+.cap-items{display:grid;grid-template-columns:repeat(3,1fr);gap:11px}
+@media(max-width:1000px){.cap-items{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:700px){.cap-items{grid-template-columns:1fr}}
+.cap{border:1px solid var(--line);border-radius:var(--r);padding:14px;background:var(--surface);text-align:left;transition:all .2s;display:flex;flex-direction:column;gap:7px;position:relative;overflow:hidden}
+.cap:hover{border-color:var(--accent-line);transform:translateY(-2px);box-shadow:0 6px 20px -6px rgba(16,185,129,.2)}
+.cap .top{display:flex;align-items:center;gap:8px}
+.cap .ci{width:26px;height:26px;border-radius:8px;background:var(--accent-soft);color:var(--accent-ink);display:grid;place-items:center}
+.cap h4{font-size:13.5px;font-weight:600;letter-spacing:-.005em}
+.cap .trig{font-size:12px;color:var(--ink-3);line-height:1.55}
+.cap .trig b{color:var(--ink-2);font-weight:500}
+.cap .foot{display:flex;align-items:center;gap:6px;margin-top:auto;padding-top:2px}
+.mature{font-size:10.5px;padding:1px 7px;border-radius:20px;font-weight:600;letter-spacing:.01em}
+.mature.v0{background:var(--accent-soft);color:var(--accent-ink)}
+.mature.v1{background:var(--info-soft);color:var(--info-ink)}
+.mature.v2{background:var(--warn-soft);color:var(--warn-ink)}
+.mature.v3{background:var(--surface-2);color:var(--muted)}
+.cap .go{margin-left:auto;font-size:11.5px;color:var(--accent-ink);opacity:0;transition:opacity .2s;display:flex;align-items:center;gap:3px}
+.cap:hover .go{opacity:1}
+
+/* ============ 技能库 ============ */
+.sk-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:11px}
+@media(max-width:1000px){.sk-grid{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:700px){.sk-grid{grid-template-columns:1fr}}
+.sk{border:1px solid var(--line);border-radius:var(--r);padding:13px;background:var(--surface);text-align:left;transition:all .2s;display:flex;flex-direction:column;gap:8px;position:relative}
+.sk:hover{border-color:#d6d2cd;transform:translateY(-2px);box-shadow:var(--sh)}
+.sk .top{display:flex;align-items:flex-start;gap:8px}
+.sk h4{font-size:13.5px;font-weight:600;letter-spacing:-.005em;display:flex;align-items:center;gap:5px}
+.sk p{font-size:12px;color:var(--ink-3);line-height:1.5;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.sk .foot{display:flex;align-items:center;gap:6px;margin-top:auto;padding-top:4px}
+.sk .warnbadge{position:absolute;top:-6px;right:-6px;width:19px;height:19px;border-radius:50%;background:var(--warn);color:#fff;display:grid;place-items:center;font-size:12px;font-weight:700;box-shadow:0 2px 6px rgba(245,158,11,.4)}
+.sk.locked{background:var(--surface-2)}
+.sk.locked h4{color:var(--ink-2)}
+.tool-tip{position:absolute;bottom:calc(100% + 7px);left:50%;transform:translateX(-50%);background:var(--ink);color:#fff;font-size:11px;padding:5px 9px;border-radius:6px;white-space:nowrap;opacity:0;pointer-events:none;transition:opacity .15s;z-index:20;font-weight:400}
+.sk.locked:hover .tool-tip{opacity:1}
+
+/* drawer / modal / toast */
+.scrim{position:fixed;inset:0;background:rgba(28,25,23,.32);backdrop-filter:blur(2px);opacity:0;pointer-events:none;transition:opacity .22s;z-index:60}
+.scrim.on{opacity:1;pointer-events:auto}
+.drawer{position:fixed;top:0;right:0;bottom:0;width:min(560px,94vw);background:var(--surface);z-index:70;transform:translateX(100%);transition:transform .26s cubic-bezier(.32,.72,0,1);display:flex;flex-direction:column;box-shadow:var(--sh-lg)}
+.drawer.on{transform:none}
+.drawer-h{padding:16px 20px;border-bottom:1px solid var(--line);display:flex;align-items:flex-start;gap:12px}
+.drawer-b{flex:1;overflow-y:auto;padding:18px 20px 24px}
+.drawer-f{padding:12px 20px;border-top:1px solid var(--line);display:flex;gap:8px;align-items:center;background:var(--surface-2)}
+.md{font-size:13.5px;line-height:1.75;color:var(--ink-2)}
+.md h3{font-size:14px;color:var(--ink);font-weight:600;margin:16px 0 6px;display:flex;align-items:center;gap:6px}
+.md h3:first-child{margin-top:0}
+.md p{margin:6px 0}
+.md ul{margin:6px 0;padding-left:19px}
+.md li{margin:3px 0}
+.md code{font-family:var(--mono);font-size:12px;background:var(--surface-2);padding:1px 5px;border-radius:5px;color:var(--ink)}
+.md pre{background:var(--surface-2);border:1px solid var(--line-soft);border-radius:var(--r-sm);padding:11px 13px;margin:8px 0;overflow-x:auto;font-family:var(--mono);font-size:11.5px;line-height:1.65;color:var(--ink-2)}
+.md hr{border:0;border-top:1px solid var(--line-soft);margin:14px 0}
+.md blockquote{border-left:2px solid var(--accent);padding-left:11px;margin:8px 0;color:var(--ink-3)}
+.modal{position:fixed;left:50%;top:50%;transform:translate(-50%,-46%) scale(.97);width:min(520px,94vw);background:var(--surface);border-radius:16px;z-index:70;opacity:0;pointer-events:none;transition:all .22s;box-shadow:var(--sh-lg);overflow:hidden}
+.modal.on{opacity:1;pointer-events:auto;transform:translate(-50%,-50%) scale(1)}
+.toasts{position:fixed;right:20px;bottom:20px;z-index:90;display:flex;flex-direction:column;gap:8px;align-items:flex-end}
+.toast{background:var(--ink);color:#fff;font-size:12.5px;padding:9px 13px;border-radius:10px;box-shadow:var(--sh-lg);display:flex;align-items:center;gap:8px;animation:tin .25s ease;max-width:340px}
+@keyframes tin{from{opacity:0;transform:translateY(8px) scale(.97)}to{opacity:1;transform:none}}
+.toast.ok{background:#064e3b}
+.toast.warn{background:#78350f}
+
+/* ============ 看板 / 选题 ============ */
+.kb{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+@media(max-width:900px){.kb{grid-template-columns:1fr}}
+.kb-col{background:var(--surface-2);border:1px solid var(--line-soft);border-radius:var(--r);display:flex;flex-direction:column;min-height:190px}
+.kb-h{padding:11px 13px;display:flex;align-items:center;gap:8px;font-size:12.5px;font-weight:600;border-bottom:1px solid var(--line-soft)}
+.kb-h .n{font-family:var(--mono);font-size:10.5px;color:var(--muted);background:var(--surface);border:1px solid var(--line);border-radius:20px;padding:0 7px}
+.kb-b{padding:10px;display:flex;flex-direction:column;gap:9px;min-height:60px}
+.kb-card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-sm);padding:11px;cursor:grab;transition:all .18s;box-shadow:0 1px 2px rgba(0,0,0,.03)}
+.kb-card:hover{transform:translateY(-1px);box-shadow:var(--sh);border-color:#d6d2cd}
+.kb-card.dragging{opacity:.4}
+.kb-card.over{border-color:var(--accent);background:var(--accent-soft);box-shadow:none}
+.kb-card b{font-size:13px;font-weight:500;line-height:1.45;display:block}
+.kb-card .ang{font-size:11.5px;color:var(--ink-3);margin-top:4px;line-height:1.5}
+.kb-card .m{display:flex;gap:6px;align-items:center;margin-top:9px;flex-wrap:wrap}
+.kb-card .go{display:flex;gap:6px;margin-top:9px;padding-top:9px;border-top:1px solid var(--line-soft);opacity:0;transition:opacity .15s}
+.kb-card:hover .go{opacity:1}
+.score{font-family:var(--mono);font-size:10.5px;padding:1px 6px;border-radius:5px;font-weight:600}
+.score.hi{background:var(--accent-soft);color:var(--accent-ink)}
+.score.mid{background:var(--warn-soft);color:var(--warn-ink)}
+.score.lo{background:var(--surface-2);color:var(--muted)}
+.src{font-size:10.5px;padding:1px 6px;border-radius:5px;background:var(--info-soft);color:var(--info-ink);font-family:var(--mono)}
+
+/* ============ 热点 ============ */
+.hot-layout{display:grid;grid-template-columns:210px 1fr;gap:16px;align-items:start}
+@media(max-width:900px){.hot-layout{grid-template-columns:1fr}}
+.src-list button{width:100%;display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:var(--r-xs);font-size:13px;color:var(--ink-2);transition:all .15s;text-align:left;margin-bottom:2px}
+.src-list button:hover{background:var(--surface-2);color:var(--ink)}
+.src-list button.on{background:var(--accent-soft);color:var(--accent-ink);font-weight:500}
+.src-list button .n{margin-left:auto;font-size:10.5px;color:var(--muted);font-family:var(--mono)}
+.crumb2{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);padding:10px 0 8px;flex-wrap:wrap}
+.crumb2 b{color:var(--ink-2);font-weight:500;cursor:pointer}
+.crumb2 b:hover{color:var(--accent-ink)}
+.hot-item{display:flex;align-items:center;gap:11px;padding:10px 0;border-bottom:1px solid var(--line-soft)}
+.hot-item:last-child{border-bottom:0}
+.rank{font-family:var(--mono);font-size:12px;color:var(--muted);width:20px;flex:none;text-align:center}
+.rank.top{color:var(--danger);font-weight:700}
+.hot-item .b{flex:1;min-width:0}
+.hot-item .b b{font-size:13.5px;font-weight:500;display:block;line-height:1.45}
+.hot-item .mm{display:flex;gap:8px;align-items:center;margin-top:3px;font-size:11px;color:var(--muted);flex-wrap:wrap}
+.hot-item .acts{display:flex;gap:6px;opacity:0;transition:opacity .15s}
+.hot-item:hover .acts{opacity:1}
+@media(max-width:768px){.hot-item .acts{opacity:1}}
+.spark{font-family:var(--mono);font-size:11px;color:var(--danger);font-weight:600}
+.star-btn.on{color:var(--warn)}
+
+/* ============ 日历 ============ */
+.cal{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
+.cal-h{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));border-bottom:1px solid var(--line);background:var(--surface-2)}
+.cal-h div{padding:9px;text-align:center;font-size:11.5px;font-weight:600;color:var(--ink-3)}
+.cal-g{display:grid;grid-template-columns:repeat(7,minmax(0,1fr))}
+.cal-d{min-width:0;min-height:106px;border-right:1px solid var(--line-soft);border-bottom:1px solid var(--line-soft);padding:6px 7px;display:flex;flex-direction:column;gap:4px;transition:background .15s}
+.cal-d:nth-child(7n){border-right:0}
+.cal-d.out{background:var(--surface-2);opacity:.45}
+.cal-d.today{background:var(--accent-soft);box-shadow:inset 0 0 0 1px var(--accent-line)}
+.cal-d .dn{font-size:11px;color:var(--ink-3);font-family:var(--mono)}
+.cal-d.today .dn{color:var(--accent-ink);font-weight:700}
+.ev{font-size:11px;padding:2px 6px;border-radius:5px;background:var(--accent-soft);color:var(--accent-ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer;display:flex;align-items:center;gap:4px;border-left:2px solid var(--accent)}
+.ev:hover{filter:brightness(.97)}
+.ev.draft{background:var(--info-soft);color:var(--info-ink);border-left-color:var(--info)}
+.ev.sent{background:var(--surface-2);color:var(--ink-3);border-left-color:var(--muted);text-decoration:line-through;text-decoration-color:var(--line)}
+.ev.act{background:repeating-linear-gradient(45deg,rgba(120,113,108,.08) 0 5px,transparent 5px 10px);color:var(--ink-3);border:1px dashed var(--line)}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:11.5px;color:var(--ink-3)}
+.legend i{width:9px;height:9px;border-radius:3px;display:inline-block;margin-right:5px;vertical-align:-1px}
+@media(max-width:768px){.cal-d{min-height:64px;padding:4px}.ev{font-size:10px;padding:1px 4px}.cal-h div{font-size:10.5px;padding:6px 0}}
+
+/* ============ 内容库 ============ */
+.lib{display:grid;grid-template-columns:236px 1fr;gap:16px;align-items:start}
+@media(max-width:900px){.lib{grid-template-columns:1fr}}
+.tree{font-size:13px}
+.tree .n{display:flex;align-items:center;gap:7px;padding:6px 8px;border-radius:var(--r-xs);cursor:pointer;transition:background .15s;color:var(--ink-2);width:100%;text-align:left}
+.tree .n:hover{background:var(--surface-2);color:var(--ink)}
+.tree .n.on{background:var(--accent-soft);color:var(--accent-ink);font-weight:500}
+.tree .n.sub{padding-left:24px;font-size:12.5px}
+.tree .n .c{margin-left:auto;font-size:10.5px;color:var(--muted);font-family:var(--mono)}
+.file-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:11px}
+@media(max-width:1100px){.file-grid{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:700px){.file-grid{grid-template-columns:repeat(2,1fr)}}
+.tile{border:1px solid var(--line);border-radius:var(--r-sm);overflow:hidden;background:var(--surface);cursor:pointer;transition:all .18s}
+.tile:hover{transform:translateY(-2px);box-shadow:var(--sh);border-color:#d6d2cd}
+.tile.sel{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.tile .th{height:86px;display:grid;place-items:center;background:var(--surface-2);position:relative;border-bottom:1px solid var(--line-soft);overflow:hidden}
+.tile .tb{padding:8px 9px}
+.tile .tb b{font-size:12px;font-weight:500;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tile .tb span{font-size:10.5px;color:var(--muted);font-family:var(--mono)}
+.list-row{display:flex;align-items:center;gap:11px;padding:9px 11px;border:1px solid var(--line);border-radius:var(--r-sm);background:var(--surface);margin-bottom:7px;cursor:pointer;transition:all .15s}
+.list-row:hover{border-color:#d6d2cd;transform:translateX(1px)}
+.list-row.sel{border-color:var(--accent);background:var(--accent-soft)}
+.list-row .ic{width:30px;height:30px;border-radius:8px;display:grid;place-items:center;font-family:var(--mono);font-size:9.5px;font-weight:600;color:#fff;flex:none}
+.preview{background:var(--surface-2);border:1px solid var(--line);border-radius:var(--r-sm);min-height:210px;display:grid;place-items:center;padding:16px}
+.mockcard{width:150px;background:#fff;border:1px solid var(--line);border-radius:10px;padding:14px 13px;box-shadow:var(--sh);text-align:left}
+.mockcard .t{font-size:12.5px;font-weight:700;line-height:1.4;margin-bottom:7px}
+.mockcard .l{height:5px;border-radius:3px;background:var(--surface-3);margin-bottom:5px}
+.mockcard .l.w70{width:70%}.mockcard .l.w50{width:50%}.mockcard .l.w85{width:85%}
+.mockcard .ft{margin-top:10px;display:flex;gap:4px;align-items:center;font-size:9px;color:var(--muted)}
+.sysfile{background:var(--warn-soft);color:var(--warn-ink);font-size:11px;padding:6px 10px;border-radius:8px;display:flex;gap:7px;align-items:center;margin-bottom:11px}
+
+/* ============ 发布 ============ */
+.pub{display:grid;grid-template-columns:1fr 304px;gap:16px;align-items:start}
+@media(max-width:1020px){.pub{grid-template-columns:1fr}}
+.plat{display:flex;align-items:center;gap:9px;padding:9px 11px;border:1px solid var(--line);border-radius:var(--r-sm);cursor:pointer;transition:all .15s;background:var(--surface);width:100%;text-align:left}
+.plat:hover{border-color:#d6d2cd}
+.plat.on{border-color:var(--accent);background:var(--accent-soft)}
+.plat .ck{width:16px;height:16px;border-radius:5px;border:1.5px solid var(--line);display:grid;place-items:center;flex:none;background:#fff}
+.plat.on .ck{background:var(--accent);border-color:var(--accent);color:#fff}
+.plat .nm{font-size:13px;font-weight:500;display:block}
+.plat .sub{font-size:10.5px;color:var(--muted);display:block}
+.pv{border:1px solid var(--line);border-radius:var(--r-sm);padding:11px 12px;margin-top:9px;background:var(--surface)}
+.limit{height:3px;border-radius:3px;background:var(--surface-3);margin-top:6px;overflow:hidden}
+.limit i{display:block;height:100%;background:var(--accent);border-radius:3px;width:0;transition:width .3s}
+.limit i.over{background:var(--danger)}
+.pv .hd{display:flex;align-items:center;gap:8px;font-size:12.5px;font-weight:600}
+.pv .cnt{margin-left:auto;font-family:var(--mono);font-size:11px;color:var(--ink-3)}
+.pv .cnt.over{color:var(--danger);font-weight:700}
+.pv .bd{font-size:12.5px;color:var(--ink-2);margin-top:8px;line-height:1.62;max-height:82px;overflow:hidden;position:relative;white-space:pre-wrap}
+.pv .bd::after{content:"";position:absolute;left:0;right:0;bottom:0;height:28px;background:linear-gradient(transparent,var(--surface))}
+.status-row{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--line-soft)}
+.status-row:last-child{border-bottom:0}
+.st{width:20px;height:20px;border-radius:50%;display:grid;place-items:center;flex:none}
+.st.run{background:var(--warn-soft);color:var(--warn-ink)}
+.st.ok{background:var(--accent-soft);color:var(--accent-ink)}
+.st.err{background:var(--danger-soft);color:var(--danger-ink)}
+.st.wait{background:var(--surface-2);color:var(--muted)}
+.precheck{display:flex;gap:9px;padding:9px 0;border-bottom:1px solid var(--line-soft);align-items:flex-start}
+.precheck:last-child{border-bottom:0}
+.precheck .s{width:17px;height:17px;border-radius:50%;display:grid;place-items:center;flex:none;margin-top:1px}
+.precheck .s.ok{background:var(--accent-soft);color:var(--accent-ink)}
+.precheck .s.w{background:var(--warn-soft);color:var(--warn-ink)}
+.precheck .s.d{background:var(--danger-soft);color:var(--danger-ink)}
+.precheck b{font-size:12.5px;font-weight:500;display:block}
+.precheck span{font-size:11.5px;color:var(--ink-3);line-height:1.5;display:block;margin-top:1px}
+
+/* ============ 账号登录 ============ */
+.acct{display:flex;align-items:center;gap:12px;padding:13px 0;border-bottom:1px solid var(--line-soft)}
+.acct:last-child{border-bottom:0}
+.acct .av{width:38px;height:38px;border-radius:11px;display:grid;place-items:center;color:#fff;font-size:13px;font-weight:600;flex:none}
+.qr{width:152px;height:152px;border:1px solid var(--line);border-radius:var(--r-sm);padding:9px;background:#fff;display:grid;place-items:center;flex:none}
+.qr svg{width:100%;height:100%;display:block}
+.pulse{animation:pl 1.8s ease-in-out infinite}
+@keyframes pl{0%,100%{opacity:1}50%{opacity:.45}}
+.attach-item{display:flex;align-items:center;gap:8px;padding:6px 8px;border:1px solid var(--line-soft);border-radius:var(--r-xs);background:var(--surface-2);font-size:11.5px}
+
+/* ============ 数据 / 图表 ============ */
+.chart{width:100%;height:auto;display:block}
+.bar-row{display:grid;grid-template-columns:96px 1fr 68px;gap:10px;align-items:center;padding:4px 0}
+.bar-t{height:14px;background:var(--surface-2);border-radius:5px;overflow:hidden}
+.bar-f{height:100%;background:var(--accent);border-radius:5px;transition:width .5s}
+.bar-f.b2{background:var(--info)}.bar-f.b3{background:var(--warn)}
+.bar-v{font-family:var(--mono);font-size:11.5px;text-align:right;color:var(--ink-3)}
+.mem-item{display:flex;gap:9px;padding:10px 0;border-bottom:1px solid var(--line-soft);align-items:flex-start}
+.mem-item:last-child{border-bottom:0}
+.mem-item .q{width:20px;height:20px;border-radius:6px;background:var(--accent-soft);color:var(--accent-ink);display:grid;place-items:center;font-size:11px;flex:none;font-weight:600}
+.mem-item b{font-size:12.5px;font-weight:500;display:block;line-height:1.5}
+.mem-item span{font-size:11.5px;color:var(--ink-3);display:block;margin-top:2px;line-height:1.5}
+.mem-item .a{display:flex;gap:5px;margin-top:7px}
+.tbl{width:100%;border-collapse:collapse;font-size:12.5px}
+.tbl th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:600;padding:0 10px 8px;border-bottom:1px solid var(--line-soft)}
+.tbl td{padding:9px 10px;border-bottom:1px solid var(--line-soft);color:var(--ink-2)}
+.tbl tr:last-child td{border-bottom:0}
+.tbl td b{color:var(--ink);font-weight:500}
+.tbl .num{font-family:var(--mono);text-align:right}
+
+/* ============ 画像 ============ */
+.dims{display:grid;grid-template-columns:158px 1fr;gap:16px;align-items:start}
+@media(max-width:860px){.dims{grid-template-columns:1fr}}
+.dim-nav button{width:100%;display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:var(--r-xs);font-size:13px;color:var(--ink-2);text-align:left;transition:all .15s;margin-bottom:2px}
+.dim-nav button:hover{background:var(--surface-2)}
+.dim-nav button.on{background:var(--accent-soft);color:var(--accent-ink);font-weight:500}
+.dim-nav button .n{margin-left:auto;font-size:10.5px;color:var(--muted);font-family:var(--mono)}
+.filled{height:4px;border-radius:4px;background:var(--surface-3);margin-top:5px;overflow:hidden}
+.filled i{display:block;height:100%;background:var(--accent);border-radius:4px}
+.redline{display:flex;align-items:center;gap:8px;padding:7px 9px;border:1px solid var(--line-soft);border-radius:var(--r-xs);margin-bottom:6px;background:var(--surface-2)}
+.redline span{font-size:12.5px;flex:1}
+.mdview{border:1px solid var(--line);border-radius:var(--r-sm);padding:14px 16px;background:var(--surface);font-size:13.5px;line-height:1.75;color:var(--ink-2);min-height:150px}
+.split{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:900px){.split{grid-template-columns:1fr}}
+
+/* ============ 设置 ============ */
+.chan{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--line-soft)}
+.chan:last-child{border-bottom:0}
+.chan .nm{width:104px;flex:none}
+.chan .nm b{font-size:13px;font-weight:500;display:block}
+.chan .nm span{font-size:11px;color:var(--muted)}
+.key-in{position:relative}
+.key-in .eye{position:absolute;right:5px;top:50%;transform:translateY(-50%);width:24px;height:24px;border-radius:6px;display:grid;place-items:center;color:var(--muted)}
+.key-in .eye:hover{background:var(--surface-2)}
+.doc-item{display:flex;align-items:center;gap:10px;padding:7px 0;font-size:12.5px}
+.doc-item .s{width:16px;height:16px;border-radius:50%;display:grid;place-items:center;flex:none}
+.doc-item .s.ok{background:var(--accent-soft);color:var(--accent-ink)}
+.doc-item .s.no{background:var(--danger-soft);color:var(--danger-ink)}
+.doc-item .s.warn{background:var(--warn-soft);color:var(--warn-ink)}
+.doc-item .sp{margin-left:auto;font-family:var(--mono);font-size:11px;color:var(--muted)}
+.prog{height:5px;background:var(--surface-3);border-radius:5px;overflow:hidden}
+.prog i{display:block;height:100%;background:var(--accent);border-radius:5px;width:0;transition:width .45s}
+.spin{animation:sp 1s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+
+/* responsive */
+@media(max-width:900px){
+  .app{grid-template-columns:60px 1fr}
+  .nav-item span,.nav-label,.prof-pick .t,.brand-name,.brand-ver{display:none}
+  .nav-item{justify-content:center;padding:9px}
+  .nav-item .cnt{display:none}
+  .chat-side{display:none}
+  .view-pad{padding:16px 14px 32px}
+  .topbar{padding:0 14px}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <!-- ============ sidebar ============ -->
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-mark">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 3 8l9 5 9-5-9-5Z"/><path d="m3 16 9 5 9-5"/><path d="m3 12 9 5 9-5"/></svg>
+      </div>
+      <div class="brand-name">Atelier</div>
+      <div class="brand-ver">v0.1</div>
+    </div>
+    <div class="side-scroll" id="nav">
+      <div class="nav-group">
+        <button class="nav-item" data-go="workbench">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>
+          <span>工作台</span>
+        </button>
+        <button class="nav-item" data-go="chat">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.4 8.4 0 0 1-9 8.4 9 9 0 0 1-3.9-.9L3 20.5l1.5-4.4A8.4 8.4 0 0 1 3.6 11 8.4 8.4 0 0 1 12 3a8.4 8.4 0 0 1 9 8.5Z"/></svg>
+          <span>对话工作台</span><span class="cnt">6</span>
+        </button>
+      </div>
+      <div class="nav-group">
+        <div class="nav-label">输入</div>
+        <button class="nav-item" data-go="hot">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2s4 4.5 4 8a4 4 0 0 1-8 0c0-1 .3-1.8.7-2.5C7 9 6 10.5 6 13a6 6 0 0 0 12 0c0-5-6-11-6-11Z"/></svg>
+          <span>热点发现</span><span class="cnt">7</span>
+        </button>
+        <button class="nav-item" data-go="capability">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="2"/><rect x="14" y="3" width="7" height="7" rx="2"/><rect x="3" y="14" width="7" height="7" rx="2"/><path d="M17.5 14v7M14 17.5h7"/></svg>
+          <span>能力地图</span>
+        </button>
+      </div>
+      <div class="nav-group">
+        <div class="nav-label">策划</div>
+        <button class="nav-item" data-go="topics">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h11M4 12h11M4 19h7"/><circle cx="19" cy="17" r="3"/><path d="m21.5 19.5 2 2"/></svg>
+          <span>选题库</span><span class="cnt">12</span>
+        </button>
+        <button class="nav-item" data-go="calendar">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2.5"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>
+          <span>内容日历</span>
+        </button>
+        <button class="nav-item" data-go="library">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2.5h8a2 2 0 0 1 2 2V18a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/></svg>
+          <span>内容库</span>
+        </button>
+      </div>
+      <div class="nav-group">
+        <div class="nav-label">发布</div>
+        <button class="nav-item" data-go="publish">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12.5 20 4l-3.5 16-4-6.5Z"/><path d="m12.5 13.5 3-3"/></svg>
+          <span>发布中心</span><span class="dot" title="有未完成发布"></span>
+        </button>
+        <button class="nav-item" data-go="accounts">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2.5"/><circle cx="12" cy="11" r="3.2"/><path d="M5.5 19c1.4-2.6 3.7-3.8 6.5-3.8s5.1 1.2 6.5 3.8"/></svg>
+          <span>账号登录</span>
+        </button>
+        <button class="nav-item" data-go="analytics">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>
+          <span>数据复盘</span>
+        </button>
+      </div>
+      <div class="nav-group">
+        <div class="nav-label">系统</div>
+        <button class="nav-item" data-go="skills">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3H5a2 2 0 0 0-2 2v3M15 3h4a2 2 0 0 1 2 2v3M9 21H5a2 2 0 0 1-2-2v-3M15 21h4a2 2 0 0 0 2-2v-3"/><rect x="8" y="8" width="8" height="8" rx="1.5"/></svg>
+          <span>技能库</span>
+        </button>
+        <button class="nav-item" data-go="profile">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.6"/><path d="M4.5 20c1.5-3.5 4.2-5.2 7.5-5.2s6 1.7 7.5 5.2"/></svg>
+          <span>账号画像</span>
+        </button>
+        <button class="nav-item" data-go="settings">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h8M16 6h4M4 12h3M11 12h9M4 18h10M18 18h2"/><circle cx="14" cy="6" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="16" cy="18" r="2"/></svg>
+          <span>设置</span><span class="dot" title="1 项待配置"></span>
+        </button>
+      </div>
+    </div>
+    <div class="side-foot">
+      <button class="prof-pick" data-go="profile">
+        <div class="avatar g">效率</div>
+        <div class="t">
+          <b>AI 效率观察</b>
+          <span><i class="live-dot"></i>小红书 · 抖音 · 公众号</span>
+        </div>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--muted)"><path d="m7 15 5 5 5-5M7 9l5-5 5 5"/></svg>
+      </button>
+    </div>
+  </aside>
+
+  <!-- ============ main ============ -->
+  <div class="main">
+    <header class="topbar">
+      <div class="crumb" id="crumb"><b>工作台</b></div>
+      <div class="top-right">
+        <div class="tabs" id="topTabs" style="display:none">
+          <button class="tab on" data-v="chat">对话</button>
+          <button class="tab" data-v="capability">能力地图</button>
+          <button class="tab" data-v="skills">技能库</button>
+        </div>
+        <button class="btn sm ghost" data-go="settings" title="环境体检">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+          <span style="font-size:12px">体检</span>
+        </button>
+        <button class="btn sm pri" data-act="newchat">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+          新会话
+        </button>
+      </div>
+    </header>
+
+    <div class="views" id="views">
+      <!-- ==== 工作台 ==== -->
+      <section class="view on" id="v-workbench">
+        <div class="view-pad stack" style="gap:18px">
+          <div class="hero">
+            <div>
+              <div class="row" style="gap:7px">
+                <h2 id="greet">下午好，Mr Yu</h2>
+                <span class="chip a"><span class="live-dot"></span>画像已生效</span>
+              </div>
+              <p>今天有 <b style="color:var(--ink)">3 条</b> 待发内容 · 2 个选题卡在「进行中」· 抖音号登录态将在 <b style="color:var(--ink)">6 小时后</b>过期</p>
+            </div>
+            <div class="hero-r">
+              <button class="btn" data-go="calendar">看排期</button>
+              <button class="btn pri" data-act="demo-stream">让 AI 帮我写今天的稿</button>
+            </div>
+          </div>
+
+          <div class="stat-row">
+            <div class="card card-b"><div class="kpi"><b>12.4<span style="font-size:13px;color:var(--ink-3)">k</span></b><span>本周涨粉</span><span class="delta up">↑ 18% 环比</span></div></div>
+            <div class="card card-b"><div class="kpi"><b>3</b><span>待发内容</span><span class="delta dn">↓ 1 已超期</span></div></div>
+            <div class="card card-b"><div class="kpi"><b>2</b><span>进行中选题</span><span class="mut2" style="font-size:11.5px">共 12 条在库</span></div></div>
+            <div class="card card-b"><div class="kpi"><b>86<span style="font-size:13px;color:var(--ink-3)">%</span></b><span>门禁一次通过率</span><span class="mut2" style="font-size:11.5px">本周 21 次产出</span></div></div>
+          </div>
+
+          <div class="grid2" style="align-items:start">
+            <div class="card">
+              <div class="card-h">
+                <h3>今日待办</h3>
+                <div class="sp"><span class="chip o">3 项</span></div>
+              </div>
+              <div class="card-b" style="padding:4px 16px 8px">
+                <div class="task" data-go="publish">
+                  <div class="ti"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></div>
+                  <div class="tx"><b>「AI 工具越用越笨」的 3 个真实原因</b><span>排期 18:00 · 小红书 + 抖音</span></div>
+                  <span class="chip w">待发</span>
+                </div>
+                <div class="task" data-go="chat">
+                  <div class="ti"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18M5 8l7-5 7 5"/></svg></div>
+                  <div class="tx"><b>补完选题「我用 3 个 Agent 砍掉一半内容流程」</b><span>进行中 · 已写 60%</span></div>
+                  <span class="chip i">草稿</span>
+                </div>
+                <div class="task" data-go="accounts">
+                  <div class="ti"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z"/><path d="M4 21c0-3.3 3.6-6 8-6 1.4 0 2.7.3 3.8.8"/></svg></div>
+                  <div class="tx"><b>重新验证抖音登录态</b><span>6 小时后过期 · 需短信验证码</span></div>
+                  <span class="chip d">阻塞</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="card-h">
+                <h3>快捷入口</h3>
+                <div class="sp"><button class="btn sm ghost" data-go="capability">全部能力 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="m9 6 6 6-6 6"/></svg></button></div>
+              </div>
+              <div class="card-b">
+                <div class="quick">
+                  <button data-fill="帮我做「小红书知识卡」">
+                    <div class="qi"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M3 15l5-5 4 4 3-3 6 6"/></svg></div>
+                    <div><b>做成品</b><span>小红书知识卡 · 1080×1440</span></div>
+                  </button>
+                  <button data-fill="帮我做「一键成片」">
+                    <div class="qi"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m23 7-7 5 7 5V7Z"/><rect x="1" y="5" width="15" height="14" rx="2.5"/></svg></div>
+                    <div><b>出视频</b><span>一键成片 · 主题直接出竖版</span></div>
+                  </button>
+                  <button data-go="hot">
+                    <div class="qi"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2s4 4.5 4 8a4 4 0 0 1-8 0c0-1 .3-1.8.7-2.5C7 9 6 10.5 6 13a6 6 0 0 0 12 0c0-5-6-11-6-11Z"/></svg></div>
+                    <div><b>找选题</b><span>今日热榜 7 源已更新</span></div>
+                  </button>
+                  <button data-go="analytics">
+                    <div class="qi"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg></div>
+                    <div><b>看数据</b><span>昨日 3 条表现回收完成</span></div>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="grid2" style="align-items:start">
+            <div class="card">
+              <div class="card-h">
+                <h3>今日热榜速览</h3>
+                <div class="sp"><span class="chip o">缓存命中 12s 前</span><button class="btn sm ghost" data-go="hot">进入发现</button></div>
+              </div>
+              <div class="card-b" style="padding:2px 16px 6px" id="feed"></div>
+            </div>
+            <div class="card">
+              <div class="card-h">
+                <h3>最近产出</h3>
+                <div class="sp"><button class="btn sm ghost" data-go="library">内容库</button></div>
+              </div>
+              <div class="card-b" style="padding:12px 16px">
+                <div class="row" style="gap:10px;flex-wrap:wrap">
+                  <div style="flex:1;min-width:120px">
+                    <div class="mut2" style="font-size:11px;margin-bottom:5px">图文</div>
+                    <div class="row" style="gap:5px;flex-wrap:wrap">
+                      <span class="chip o">去AI感改写</span><span class="chip o">字数裁剪</span><span class="chip a">门禁通过 2/2</span>
+                    </div>
+                  </div>
+                  <div style="flex:1;min-width:120px">
+                    <div class="mut2" style="font-size:11px;margin-bottom:5px">视频</div>
+                    <div class="row" style="gap:5px;flex-wrap:wrap">
+                      <span class="chip o">自动字幕</span><span class="chip o">横转竖</span><span class="chip w">画质待确认</span>
+                    </div>
+                  </div>
+                </div>
+                <div class="hr"></div>
+                <div class="mut" style="font-size:12px;display:flex;align-items:center;gap:7px">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+                  昨日 3 条内容数据已回收，2 条有效结构沉淀进画像
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==== 对话工作台 ==== -->
+      <section class="view full" id="v-chat">
+        <div class="chat-wrap">
+          <aside class="chat-side">
+            <div style="padding:12px 12px 8px;border-bottom:1px solid var(--line-soft)">
+              <button class="btn sm" style="width:100%;justify-content:center" data-act="newchat">＋ 新会话</button>
+            </div>
+            <div style="flex:1;overflow-y:auto;padding:8px 8px 12px" id="sessions">
+              <div class="nav-label" style="padding:4px 4px 6px">今天</div>
+              <div class="sess on" data-s="1"><b>小红书图文 · 工具越用越笨</b><span>2 分钟前 · 通用模式</span>
+                <div class="act"><button title="重命名"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button><button title="归档"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="4" width="18" height="4" rx="1"/><path d="M5 8v11a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8M10 12h4"/></svg></button></div>
+              </div>
+              <div class="sess" data-s="2"><b>爆款拆解 · 咖啡探店</b><span>1 小时前 · AI 效率观察</span></div>
+              <div class="sess" data-s="3"><b>抖音竖版成片 · Agent 工作流</b><span>3 小时前 · AI 效率观察</span></div>
+              <div class="nav-label" style="padding:10px 4px 6px">昨天</div>
+              <div class="sess" data-s="4"><b>公众号排版 · 十月选题复盘</b><span>昨天 21:04 · AI 效率观察</span></div>
+              <div class="sess" data-s="5"><b>小红书封面配色方案</b><span>昨天 15:20 · AI 效率观察</span></div>
+              <div class="nav-label" style="padding:10px 4px 6px">已归档</div>
+              <div class="sess" data-s="6" style="opacity:.6"><b>7 月选题储备</b><span>7 月 28 日</span></div>
+            </div>
+            <div style="padding:10px 12px;border-top:1px solid var(--line-soft)" class="row">
+              <span class="chip a" style="flex:1"><span class="live-dot"></span>画像注入中</span>
+              <button class="iconbtn" data-go="profile" title="查看画像"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.6"/><path d="M4.5 20c1.5-3.5 4.2-5.2 7.5-5.2s6 1.7 7.5 5.2"/></svg></button>
+            </div>
+          </aside>
+
+          <div class="chat-main">
+            <div class="msgs" id="msgs">
+              <div class="msgs-in" id="msgsIn">
+                <div class="msg u">
+                  <div class="who">Mr</div>
+                  <div class="bd">
+                    <div class="nm">你 <span class="chip o mono" style="height:18px;font-size:10px">AI 效率观察</span></div>
+                    <div class="bubble">帮我把今天热榜的「AI 工具越用越笨」写成一篇小红书图文，要 3 张知识卡的量。</div>
+                  </div>
+                </div>
+
+                <div class="msg a">
+                  <div class="who">AI</div>
+                  <div class="bd">
+                    <div class="nm">Atelier <span class="mut2">14:32</span></div>
+                    <details class="think">
+                      <summary><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0-4 10.5V17h8v-3.5A6 6 0 0 0 12 3Z"/><path d="M9 21h6"/></svg> 思考过程（1.8s）</summary>
+                      <div class="tb">1. 检索热榜：抖音 #AI工具越用越笨 热度 1.2w，关联 3 条同题内容
+2. 匹配画像：风格=「反常识 + 亲手实测」，红线=不用「震惊/必看」等极限词
+3. 平台约束：小红书正文 ≤1000 字，3 卡结构，每卡 ≤120 字 + 1 张 1080×1440
+4. 门禁预判：极限词扫描 0 命中，AI 味自检待生成后跑</div>
+                    </details>
+                    <div class="bubble">
+                      <p>写好了。按你的「反常识 + 亲手实测」风格拆成 3 张卡，每张一个论点。</p>
+                      <div class="h"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16M4 12h10M4 19h7"/></svg>卡 1 · 为什么越用越笨</div>
+                      <p>不是模型变笨了，是你的<b>提问方式</b>在退化。同一句「帮我写个文案」，第一次问会带上下文，第十次问就是一张白纸。</p>
+                      <div class="h">卡 2 · 三个具体信号</div>
+                      <ul>
+                        <li>你开始复制自己上一轮的 prompt</li>
+                        <li>产出越来越像「AI 味」模板</li>
+                        <li>你不再纠正它，因为懒得重写</li>
+                      </ul>
+                      <div class="h">卡 3 · 怎么办</div>
+                      <p>把账号画像写下来。定位、风格、受众、平台、红线，五件事固化，每次对话不用重新自我介绍。</p>
+                      <div class="artifact">
+                        <div class="ah">
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2.5"/><path d="m8 15 3-4 2 3 3-4"/></svg>
+                          视觉产出 3 张 · 1080×1440
+                          <span class="sp" style="margin-left:auto;display:flex;gap:6px">
+                            <button class="btn sm ghost" data-toast="已在内容库打开 /outputs/tool-dumb/成品/">打开目录</button>
+                            <button class="btn sm" data-act="send-to-publish">去发布</button>
+                          </span>
+                        </div>
+                        <div class="ab">
+                          <div class="row" style="gap:8px;flex-wrap:wrap">
+                            <span class="path" data-go="library">outputs/tool-dumb/成品/card-01.png</span>
+                            <span class="path" data-go="library">outputs/tool-dumb/成品/card-02.png</span>
+                            <span class="path" data-go="library">outputs/tool-dumb/成品/card-03.png</span>
+                          </div>
+                          <div class="gate">
+                            <div class="gh">
+                              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--ink)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 4 6.5v5c0 5 3.4 8.7 8 9.5 4.6-.8 8-4.5 8-9.5v-5Z"/><path d="m9 12 2 2 4-4"/></svg>
+                              确定性门禁 · 已通过
+                            </div>
+                            <div class="gi">小红书正文 782 / 1000 字 <span class="s" style="color:var(--accent-ink)">PASS</span></div>
+                            <div class="gi">极限词扫描（医疗/夸大） 0 命中 <span class="s" style="color:var(--accent-ink)">PASS</span></div>
+                            <div class="gi">AI 味自检（5 维） 72 → 81 <span class="s" style="color:var(--warn-ink)">WARN</span></div>
+                            <div class="gi">出站密钥扫描 <span class="s" style="color:var(--accent-ink)">PASS</span></div>
+                          </div>
+                        </div>
+                      </div>
+                      <div class="qcard" id="qcard">
+                        <div class="qt">
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent-ink)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6v.3"/><circle cx="12" cy="17" r=".6" fill="var(--accent-ink)"/></svg>
+                          补一个信息，我出终版
+                        </div>
+                        <div class="qopts">
+                          <button class="qopt" data-q="保持这个语气，直接出终版"><span class="k">A</span>保持这个语气，直接出终版</button>
+                          <button class="qopt" data-q="再狠一点，标题带争议性"><span class="k">B</span>再狠一点，标题要更扎眼（会过软提醒）</button>
+                          <button class="qopt" data-q="换第一人称讲我自己的实测"><span class="k">C</span>换成第一人称，讲我自己的实测经历</button>
+                        </div>
+                        <div class="help" style="margin-top:8px">已答此题在本会话内不会再次出现</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="composer">
+              <div class="composer-in">
+                <div class="cbox" id="cbox">
+                  <div class="att" id="atts" style="padding:8px 12px 0"></div>
+                  <textarea id="ta" rows="1" placeholder="说清楚你要什么，比如「把这条热点写成公众号长文，2000 字，分 3 个小标题」"></textarea>
+                  <div class="cbar">
+                    <button class="iconbtn" title="上传素材（可拖拽/粘贴）" data-act="pick-file">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="m21.4 11.1-8.5 8.5a5 5 0 0 1-7-7l8.5-8.5a3.4 3.4 0 0 1 4.8 4.8l-8.5 8.5a1.7 1.7 0 0 1-2.4-2.4l7.9-7.8"/></svg>
+                    </button>
+                    <button class="iconbtn" title="引用内容库文件" data-go="library">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2.5h8a2 2 0 0 1 2 2V18a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/></svg>
+                    </button>
+                    <button class="iconbtn rec" title="语音输入">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v4"/></svg>
+                    </button>
+                    <div id="streamState" style="flex:1"></div>
+                    <button class="iconbtn" title="清空对话" data-act="clear">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg>
+                    </button>
+                    <button class="btn pri" data-act="send" id="sendBtn">
+                      发送
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h13M12 5l7 7-7 7"/></svg>
+                    </button>
+                  </div>
+                </div>
+                <div class="row" style="margin-top:7px;gap:8px">
+                  <span class="help">Enter 发送 · Shift+Enter 换行 · 素材可直接拖入或粘贴</span>
+                  <span class="chip o mono" style="margin-left:auto">对话通道 gpt-oss-120b · 已连通</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==== 能力地图 ==== -->
+      <section class="view" id="v-capability">
+        <div class="view-pad">
+          <div class="page-head">
+            <div>
+              <h1>能力地图</h1>
+              <p>按「你要的结果」分组，不按文件格式。点一下填进输入框，你自己决定什么时候发。</p>
+            </div>
+            <div class="sp">
+              <input class="inp" style="width:180px;height:32px" placeholder="搜索能力名…">
+              <div class="tabs"><button class="tab on">全部</button><button class="tab">可立即用</button><button class="tab">需配置</button></div>
+            </div>
+          </div>
+          <div id="capWrap"></div>
+        </div>
+      </section>
+
+      <!-- ==== 技能库 ==== -->
+      <section class="view" id="v-skills">
+        <div class="view-pad">
+          <div class="page-head">
+            <div>
+              <h1>技能库</h1>
+              <p>进阶入口：单个技能的完整说明、就地运行、密钥配置。带 <span class="badge w" style="vertical-align:1px">!</span> 的表示缺配置。</p>
+            </div>
+            <div class="sp">
+              <input class="inp" style="width:190px;height:32px" placeholder="搜索技能 / 描述…">
+              <button class="btn" data-go="settings"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg>批量配置密钥</button>
+            </div>
+          </div>
+          <div class="tabs" style="margin-bottom:18px" id="skTabs">
+            <button class="tab on">全部 <span class="mut2">40</span></button>
+            <button class="tab">发现</button><button class="tab">策划</button><button class="tab">制作</button>
+            <button class="tab">发布</button><button class="tab">归因</button><button class="tab">通用</button>
+          </div>
+          <div id="skWrap"></div>
+        </div>
+      </section>
+
+      <!-- ==== 热点发现 ==== -->
+      <section class="view" id="v-hot">
+        <div class="view-pad">
+          <div class="page-head">
+            <div>
+              <h1>热点发现</h1>
+              <p>媒体 → 数据源 → 博主，三层下钻。收藏即入选题库，带来源可溯源。</p>
+            </div>
+            <div class="sp">
+              <span class="chip o" id="cacheChip"><span class="live-dot" style="background:var(--accent)"></span>缓存 12s 前 · 0.4s</span>
+              <button class="btn" data-act="reload-hot">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg>
+                刷新
+              </button>
+            </div>
+          </div>
+          <div class="hot-layout">
+            <div class="card">
+              <div class="card-h"><h3>数据源</h3><div class="sp"><span class="chip o">7 源</span></div></div>
+              <div class="card-b tight src-list" id="srcList"></div>
+            </div>
+            <div class="stack">
+              <div class="card">
+                <div class="card-h" style="border:0;padding-bottom:0">
+                  <div class="row" style="gap:8px;flex-wrap:wrap" id="hotHead"></div>
+                  <div class="sp">
+                    <div class="tabs">
+                      <button class="tab on">热度</button><button class="tab">最新</button><button class="tab">我的领域</button>
+                    </div>
+                  </div>
+                </div>
+                <div class="card-b" style="padding:0 16px 6px">
+                  <div class="crumb2">
+                    <b>抖音</b><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="m9 6 6 6-6 6"/></svg>
+                    <b>热搜榜</b>
+                    <span class="chip o mono" style="height:19px;font-size:10px">08:00 / 12:00 / 18:00 更新</span>
+                  </div>
+                  <div id="hotList"></div>
+                  <div style="padding:14px 0 4px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+                    <button class="btn sm" data-act="deep-load">深度加载抖音增量</button>
+                    <span class="help">预计 40–70s，约 120 次请求，有触发风控风险</span>
+                  </div>
+                </div>
+              </div>
+              <div class="card">
+                <div class="card-h"><h3>我的收藏</h3><div class="sp"><span class="chip o" id="favCount">0</span><button class="btn sm ghost" data-go="topics">去选题库</button></div></div>
+                <div class="card-b tight" id="favList"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==== 选题库 ==== -->
+      <section class="view" id="v-topics">
+        <div class="view-pad">
+          <div class="page-head">
+            <div>
+              <h1>选题库</h1>
+              <p>待做 / 进行中 / 已完成。拖卡片改状态，点卡片看角度与来源。</p>
+            </div>
+            <div class="sp">
+              <input class="inp" style="width:170px;height:32px" placeholder="搜索选题…">
+              <button class="btn" data-go="hot">从热点收藏</button>
+              <button class="btn pri" data-act="new-topic">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+                新建选题
+              </button>
+            </div>
+          </div>
+          <div class="kb" id="kb"></div>
+          <div class="card" style="margin-top:16px">
+            <div class="card-h"><h3>选题评分</h3><div class="sp"><span class="help">7 维打分：流量/匹配/差异/时效/变现/成本/风险</span></div></div>
+            <div class="card-b">
+              <div class="grid3">
+                <div>
+                  <div class="bar-row"><span class="mut" style="font-size:12px">工具越用越笨</span><div class="bar-t"><div class="bar-f" style="width:86%"></div></div><span class="bar-v">86 做</span></div>
+                  <div class="bar-row"><span class="mut" style="font-size:12px">3 个 Agent 砍流程</span><div class="bar-t"><div class="bar-f" style="width:78%"></div></div><span class="bar-v">78 做</span></div>
+                  <div class="bar-row"><span class="mut" style="font-size:12px">提示词模板合集</span><div class="bar-t"><div class="bar-f b3" style="width:54%"></div></div><span class="bar-v">54 改</span></div>
+                </div>
+                <div>
+                  <div class="lbl" style="margin-bottom:6px">风险项</div>
+                  <div class="precheck"><div class="s w"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M12 8v5M12 17h.01"/></svg></div><div><b>「提示词模板合集」</b><span>同质化严重，站内 12 篇同类，差异化不足</span></div></div>
+                </div>
+                <div>
+                  <div class="lbl" style="margin-bottom:6px">近 14 天建议</div>
+                  <div class="mut" style="font-size:12.5px;line-height:1.6">基于你的画像与历史表现：<b>周四 20:00 发工具类对比</b>，同期竞品更新少 3 条。</div>
+                  <button class="btn sm" style="margin-top:9px" data-act="adopt-sugg">采纳并排期</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==== 内容日历 ==== -->
+      <section class="view" id="v-calendar">
+        <div class="view-pad">
+          <div class="page-head">
+            <div>
+              <h1>内容日历</h1>
+              <p>内容条目与平台活动分开标记，状态流转：选题 → 草稿 → 待发 → 已发。</p>
+            </div>
+            <div class="sp">
+              <div class="tabs">
+                <button class="tab">‹</button><button class="tab on">2026 年 10 月</button><button class="tab">›</button>
+              </div>
+              <button class="btn sm" data-go="topics">从选题排期</button>
+            </div>
+          </div>
+          <div class="row" style="margin-bottom:12px;gap:14px;flex-wrap:wrap">
+            <div class="legend">
+              <span><i style="background:var(--accent)"></i>待发</span>
+              <span><i style="background:var(--info)"></i>草稿</span>
+              <span><i style="background:var(--muted)"></i>已发</span>
+              <span><i style="border:1px dashed var(--muted);background:repeating-linear-gradient(45deg,rgba(120,113,108,.14) 0 3px,transparent 3px 6px)"></i>平台活动（不可编辑）</span>
+            </div>
+            <div class="sp" style="margin-left:auto"></div>
+            <button class="btn sm" data-act="show-cal-sugg">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"/></svg>
+              生成近 14 天建议
+            </button>
+          </div>
+          <div class="cal" id="cal"></div>
+          <div class="card" style="margin-top:14px">
+            <div class="card-h"><h3>10 月平台活动</h3><div class="sp"><span class="chip o">3 个节点</span></div></div>
+            <div class="card-b" style="padding:4px 16px 10px">
+              <div class="status-row"><div class="st ok"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M20 6 9 17l-5-5"/></svg></div><div style="flex:1"><b>双 11 预热</b><div class="mut2" style="font-size:11.5px">10/20 – 11/11 · 全平台 · 电商方向占位</div></div><span class="chip o">9 天后</span></div>
+              <div class="status-row"><div class="st run"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></div><div style="flex:1"><b>国庆收假复盘</b><div class="mut2" style="font-size:11.5px">10/08 · 自定义 · 已过期 1 天</div></div><span class="chip d">待处理</span></div>
+              <div class="status-row"><div class="st wait">—</div><div style="flex:1"><b>双 11 当天</b><div class="mut2" style="font-size:11.5px">11/11 · 全平台 · 电商方向占位</div></div><span class="chip o">40 天后</span></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==== 内容库 ==== -->
+      <section class="view" id="v-library">
+        <div class="view-pad">
+          <div class="page-head">
+            <div>
+              <h1>内容库</h1>
+              <p>文件系统是唯一真相源。成品与过程文件分区，路径可回溯。</p>
+            </div>
+            <div class="sp">
+              <input class="inp" style="width:170px;height:32px" placeholder="按文件名搜索…">
+              <button class="btn" data-go="settings">选择输出目录</button>
+            </div>
+          </div>
+          <div class="lib">
+            <div class="card">
+              <div class="card-h"><h3>项目目录</h3><div class="sp"><span class="chip o mono">~/Atelier/outputs</span></div></div>
+              <div class="card-b tight tree" id="tree"></div>
+            </div>
+            <div class="stack">
+              <div class="row" style="gap:8px;flex-wrap:wrap">
+                <div class="tabs">
+                  <button class="tab on">全部</button><button class="tab">图片</button><button class="tab">视频</button>
+                  <button class="tab">音频</button><button class="tab">文档</button>
+                </div>
+                <div class="tabs" style="margin-left:auto">
+                  <button class="tab on"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg></button>
+                  <button class="tab"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
+                </div>
+              </div>
+              <div class="card">
+                <div class="card-h">
+                  <h3 id="libTitle">tool-dumb / 成品</h3>
+                  <div class="sp">
+                    <span class="chip o">7 项</span>
+                    <button class="btn sm" data-act="attach-to-publish">挂载到发布</button>
+                    <button class="btn sm danger" data-act="delete-file">
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg>
+                      删除
+                    </button>
+                  </div>
+                </div>
+                <div class="card-b">
+                  <div class="sysfile">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01"/><circle cx="12" cy="12" r="9"/></svg>
+                    <span>会话日志（.session/）、索引文件（.index.json）受系统保护，删除需先在设置里解锁。</span>
+                  </div>
+                  <div class="file-grid" id="files"></div>
+                </div>
+              </div>
+              <div class="card">
+                <div class="card-h"><h3>预览</h3><div class="sp"><span class="chip o">sandbox iframe</span><span class="chip o mono" id="prevPath">card-01.png</span></div></div>
+                <div class="card-b">
+                  <div class="preview" id="prev"></div>
+                  <div class="row" style="margin-top:11px;gap:8px;flex-wrap:wrap">
+                    <span class="help">HTML 预览跑在 sandbox iframe 里，不能访问 Atelier 页面上下文。</span>
+                    <span class="chip o mono" style="margin-left:auto">1.2 MB</span>
+                    <button class="btn sm ghost" data-toast="已在新标签打开原文件">原图</button>
+                    <button class="btn sm ghost" data-toast="已下载">下载</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==== 发布中心 ==== -->
+      <section class="view" id="v-publish">
+        <div class="view-pad">
+          <div class="page-head">
+            <div>
+              <h1>发布中心</h1>
+              <p>一份母版，多平台适配。逐字流式生成 + 逐平台字数门禁。</p>
+            </div>
+            <div class="sp">
+              <span class="chip a"><span class="live-dot"></span>草稿自动保存 · 14:41</span>
+              <button class="btn" data-act="schedule">排期发布</button>
+              <button class="btn pri" data-act="do-publish">
+                发布到 2 个平台
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg>
+              </button>
+            </div>
+          </div>
+          <div class="pub">
+            <div class="stack">
+              <div class="card">
+                <div class="card-h"><h3>母版内容</h3><div class="sp"><span class="chip o">适配前原文</span><button class="btn sm ghost" data-act="regen">重新适配</button></div></div>
+                <div class="card-b">
+                  <div class="field" style="margin-bottom:11px">
+                    <label>标题</label>
+                    <input class="inp" value="我用 3 个 Agent 把内容流程砍掉一半">
+                  </div>
+                  <div class="field">
+                    <label>正文</label>
+                    <textarea class="inp" rows="7">上个月我同时跑 3 个 AI 工具写稿，结果产出越来越像同一篇文章。
+问题不在工具，在于每次对话都从零开始——模型不知道我是谁、面向谁、不能说什么。
+后来我把账号画像写成了 6 个维度：定位、风格、受众、平台、红线、长期记忆。
+从那之后，同一个模型给我的产出，风格稳定得像换了个同事。
+这篇讲具体怎么做的，包括我踩过的 3 个坑。</textarea>
+                  </div>
+                  <div class="row" style="margin-top:10px;gap:7px;flex-wrap:wrap">
+                    <span class="chip o">正文 412 字</span>
+                    <span class="chip o">#AI工作流</span><span class="chip o">#内容创作</span><span class="chip o">#效率工具</span>
+                    <button class="chip o" style="border-style:dashed">+ 加话题</button>
+                  </div>
+                </div>
+              </div>
+
+              <div class="card">
+                <div class="card-h"><h3>平台适配</h3><div class="sp"><span class="chip o" id="adaptState">已生成 2 / 3</span></div></div>
+                <div class="card-b">
+                  <div class="stack" style="gap:8px">
+                    <button class="plat on" data-plat="xhs">
+                      <span class="ck"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round"><path d="M20 6 9 17l-5-5"/></svg></span>
+                      <span style="flex:1"><span class="nm">小红书</span><span class="sub">图文 · 需封面图 · 上限 1000 字</span></span>
+                      <span class="chip a">已登录</span>
+                    </button>
+                    <div class="pv" data-pv="xhs">
+                      <div class="hd">
+                        <span>标题 / 正文</span>
+                        <span class="cnt" id="cnt-xhs">618 / 1000</span>
+                      </div>
+                      <div class="limit"><i id="lim-xhs" style="width:62%"></i></div>
+                      <div class="bd">我用 3 个 Agent 把内容流程砍掉一半｜实测 30 天
+
+上个月我同时跑 3 个 AI 写稿，结果每篇都像同一个人写的。
+后来发现问题不在工具，而在于模型每次都从零开始——它不知道我是谁。
+我把账号画像写成 6 个维度后，产出风格就稳了。
+① 定位：我到底写给谁
+② 风格：句子多长、能不能用 emoji
+③ 受众：他们已经知道什么
+…（已按小红书口吻改写，保留反常识钩子）</div>
+                    </div>
+
+                    <button class="plat on" data-plat="dy">
+                      <span class="ck"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round"><path d="M20 6 9 17l-5-5"/></svg></span>
+                      <span style="flex:1"><span class="nm">抖音</span><span class="sub">仅视频 · 挂载 vertical.mp4 · 标题 ≤ 55 字</span></span>
+                      <span class="chip w">需短信</span>
+                    </button>
+                    <div class="pv" data-pv="dy">
+                      <div class="hd">
+                        <span>标题 / 描述</span>
+                        <span class="cnt over" id="cnt-dy">61 / 55</span>
+                      </div>
+                      <div class="limit"><i id="lim-dy" class="over" style="width:100%"></i></div>
+                      <div class="bd">我用 3 个 Agent 把内容流程砍掉一半，结果反而更慢了｜完整复盘 30 天实测
+
+#AI工作流 #内容创作 #效率工具
+（描述已裁剪到口播节奏，保留 3 个钩子）</div>
+                    </div>
+
+                    <button class="plat" data-plat="gzh">
+                      <span class="ck"></span>
+                      <span style="flex:1"><span class="nm">微信公众号</span><span class="sub">图文 · 需封面图 + 排版 · 上限 20000 字</span></span>
+                      <span class="chip o">未选择</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div class="card">
+                <div class="card-h"><h3>媒体附件</h3><div class="sp"><button class="btn sm ghost" data-go="library">从内容库挂载</button></div></div>
+                <div class="card-b">
+                  <div class="row" style="gap:8px;flex-wrap:wrap">
+                    <div class="attach-item">
+                      <span class="chip o mono" style="height:18px">IMG</span> card-01.png · 1080×1440
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2" stroke-linecap="round" style="cursor:pointer"><path d="M18 6 6 18M6 6l12 12"/></svg>
+                    </div>
+                    <div class="attach-item">
+                      <span class="chip o mono" style="height:18px">VID</span> vertical-9x16.mp4 · 1080×1920 · 1:04
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2" stroke-linecap="round" style="cursor:pointer"><path d="M18 6 6 18M6 6l12 12"/></svg>
+                    </div>
+                    <div class="attach-item">
+                      <span class="chip o mono" style="height:18px">SRT</span> vertical.srt · 自动烧录
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2" stroke-linecap="round" style="cursor:pointer"><path d="M18 6 6 18M6 6l12 12"/></svg>
+                    </div>
+                    <button class="btn sm ghost" style="border-style:dashed">+ 添加</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="stack">
+              <div class="card">
+                <div class="card-h"><h3>发布前预检</h3><div class="sp"><span class="chip w">1 项待处理</span></div></div>
+                <div class="card-b">
+                  <div class="precheck">
+                    <div class="s ok"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M20 6 9 17l-5-5"/></svg></div>
+                    <div><b>合规风险扫描</b><span>极限词 0 · 医疗功效 0 · 违禁品 0</span></div>
+                  </div>
+                  <div class="precheck">
+                    <div class="s d"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></div>
+                    <div><b>抖音标题超字数（硬门禁）</b><span>61 / 55 字。裁掉末尾 6 个字即可，或改用完整口播标题。</span><button class="btn sm" style="margin-top:7px" data-act="autofix">一键裁剪</button></div>
+                  </div>
+                  <div class="precheck">
+                    <div class="s w"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M12 8v5M12 17h.01"/></svg></div>
+                    <div><b>人设一致性（软提醒，不阻断）</b><span>本文出现 2 处「实测/亲测」类表述，与画像「只用真实经历」一致；但开头用了「结果反而更慢了」的反转，和你近期 3 条内容风格接近，判定为可发。</span></div>
+                  </div>
+                  <div class="precheck">
+                    <div class="s ok"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M20 6 9 17l-5-5"/></svg></div>
+                    <div><b>标题打分</b><span>钩子 8.5 / 具体度 9 / 搜索词命中 6（缺「AI 效率」）</span></div>
+                  </div>
+                  <div class="precheck">
+                    <div class="s ok"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M20 6 9 17l-5-5"/></svg></div>
+                    <div><b>封面图</b><span>已挂载 card-01.png · 1080×1440 · 符合小红书 3:4</span></div>
+                  </div>
+                  <div class="precheck">
+                    <div class="s ok"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M20 6 9 17l-5-5"/></svg></div>
+                    <div><b>登录态真校验</b><span>小红书有效 · 抖音需短信验证码（发布时弹窗）</span></div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="card">
+                <div class="card-h"><h3>发布状态</h3><div class="sp"><span class="chip o" id="pubTime">上次 18:02</span></div></div>
+                <div class="card-b">
+                  <div class="status-row">
+                    <div class="st ok"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M20 6 9 17l-5-5"/></svg></div>
+                    <div style="flex:1"><b>工具越用越笨 · 卡 1–3</b><div class="mut2" style="font-size:11.5px">小红书 · 已发 · 赞 412 / 藏 89</div></div>
+                    <span class="chip o mono">3h 前</span>
+                  </div>
+                  <div class="status-row">
+                    <div class="st err"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></div>
+                    <div style="flex:1"><b>Agent 工作流横转竖</b><div class="mut2" style="font-size:11.5px">抖音 · 发布失败：登录态过期，需重新扫码 + 短信验证码（错误码 dy_auth_4012）</div></div>
+                    <button class="btn sm" data-go="accounts">去登录</button>
+                  </div>
+                  <div class="status-row">
+                    <div class="st wait">—</div>
+                    <div style="flex:1"><b class="mut">本次发布</b><div class="mut2" style="font-size:11.5px">等待确认 · 2 个平台</div></div>
+                    <span class="chip o">待发</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==== 账号登录 ==== -->
+      <section class="view" id="v-accounts">
+        <div class="view-pad">
+          <div class="page-head">
+            <div>
+              <h1>账号登录</h1>
+              <p>登录态是「真校验」的：标记文件存在 ≠ 还能发。每次发布前会再验一次。</p>
+            </div>
+            <div class="sp">
+              <span class="chip o">浏览器会话复用中 · 不重复起窗口</span>
+              <button class="btn" data-act="verify-all">全部重新校验</button>
+            </div>
+          </div>
+          <div class="grid2" style="align-items:start">
+            <div class="card">
+              <div class="card-h"><h3>扫码登录</h3><div class="sp"><span class="chip o">5 个平台</span></div></div>
+              <div class="card-b" style="padding:0 16px 8px">
+                <div class="acct">
+                  <div class="av" style="background:linear-gradient(140deg,#ff2e4d,#ff6b3d)">红</div>
+                  <div style="flex:1"><b style="font-size:13.5px">小红书</b><div class="mut2" style="font-size:11.5px">@AI效率观察 · 12.4k 粉丝 · 已登录 3 天</div></div>
+                  <span class="chip a">有效</span>
+                  <button class="btn sm" data-act="qr" data-p="xhs">重新扫码</button>
+                  <button class="btn sm ghost" data-act="logout" data-p="小红书">登出</button>
+                </div>
+                <div class="acct">
+                  <div class="av" style="background:linear-gradient(140deg,#1c1917,#44403c)">抖</div>
+                  <div style="flex:1"><b style="font-size:13.5px">抖音</b><div class="mut2" style="font-size:11.5px">@ai_efficiency · 8.1k 粉丝 · 登录 22 小时</div></div>
+                  <span class="chip w">即将过期</span>
+                  <button class="btn sm" data-act="qr" data-p="抖音">重新扫码</button>
+                  <button class="btn sm ghost" data-act="logout" data-p="抖音">登出</button>
+                </div>
+                <div class="acct">
+                  <div class="av" style="background:linear-gradient(140deg,#ff6a00,#ffb300)">快</div>
+                  <div style="flex:1"><b style="font-size:13.5px">快手</b><div class="mut2" style="font-size:11.5px">未登录</div></div>
+                  <span class="chip o">未登录</span>
+                  <button class="btn sm pri" data-act="qr" data-p="快手">扫码登录</button>
+                </div>
+                <div class="acct">
+                  <div class="av" style="background:linear-gradient(140deg,#0084ff,#00c2ff)">知</div>
+                  <div style="flex:1"><b style="font-size:13.5px">知乎</b><div class="mut2" style="font-size:11.5px">未登录</div></div>
+                  <span class="chip o">未登录</span>
+                  <button class="btn sm pri" data-act="qr" data-p="知乎">扫码登录</button>
+                </div>
+                <div class="acct">
+                  <div class="av" style="background:linear-gradient(140deg,#fb7299,#ff9dbb)">B</div>
+                  <div style="flex:1"><b style="font-size:13.5px">哔哩哔哩</b><div class="mut2" style="font-size:11.5px">@AI效率观察 · 2.3k 粉丝</div></div>
+                  <span class="chip a">有效</span>
+                  <button class="btn sm" data-act="qr" data-p="B站">重新扫码</button>
+                  <button class="btn sm ghost" data-act="logout" data-p="B站">登出</button>
+                </div>
+                <div class="acct">
+                  <div class="av" style="background:linear-gradient(140deg,#fa9d3b,#ffd60a)">视</div>
+                  <div style="flex:1"><b style="font-size:13.5px">微信视频号</b><div class="mut2" style="font-size:11.5px">未登录</div></div>
+                  <span class="chip o">未登录</span>
+                  <button class="btn sm pri" data-act="qr" data-p="视频号">扫码登录</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="stack">
+              <div class="card">
+                <div class="card-h"><h3>微信公众号（凭证登录）</h3><div class="sp"><span class="chip a">有效</span></div></div>
+                <div class="card-b stack" style="gap:11px">
+                  <div class="field">
+                    <label>AppID</label>
+                    <input class="inp mono" value="wx7f3••••••••••a92c">
+                  </div>
+                  <div class="field">
+                    <label>AppSecret</label>
+                    <div class="key-in">
+                      <input class="inp mono" type="password" value="e1a4c93b7d2f8e6a5c0d4b1f9e2a7c83" id="gzhKey">
+                      <button class="eye" data-act="toggle-key">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="2.6"/></svg>
+                      </button>
+                    </div>
+                    <span class="help">密钥只写入不回传；留空保存不会覆盖已存值。</span>
+                  </div>
+                  <div class="row" style="gap:8px">
+                    <button class="btn" data-act="verify-gzh">验证凭证</button>
+                    <button class="btn pri" data-toast="已保存（AppSecret 未改动）">保存</button>
+                    <span class="chip o mono" style="margin-left:auto">上次验证 2 天前</span>
+                  </div>
+                </div>
+              </div>
+              <div class="card">
+                <div class="card-h"><h3>风控提示</h3></div>
+                <div class="card-b">
+                  <div class="precheck">
+                    <div class="s w"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M12 8v5M12 17h.01"/></svg></div>
+                    <div><b>小红书风控风险</b><span>平台可能检测自动化操作。建议保留「发布前人工确认」开关，不做无人值守定时发布。</span></div>
+                  </div>
+                  <div class="precheck">
+                    <div class="s w"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M12 8v5M12 17h.01"/></svg></div>
+                    <div><b>抖音短信墙</b><span>发布时可能要求短信验证码，会在弹窗里提示并等待 5 分钟。</span></div>
+                  </div>
+                  <label class="row" style="gap:8px;margin-top:10px;font-size:12.5px;cursor:pointer">
+                    <span class="plat" style="padding:6px;border-radius:6px;width:16px;height:16px;display:grid;place-items:center" id="swHuman"></span>
+                    发布前始终人工确认（强烈建议保持开启）
+                  </label>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==== 数据复盘 ==== -->
+      <section class="view" id="v-analytics">
+        <div class="view-pad stack" style="gap:16px">
+          <div class="page-head" style="margin-bottom:0">
+            <div>
+              <h1>数据复盘</h1>
+              <p>回收失败会保留上次快照，不会把已有数据清空。</p>
+            </div>
+            <div class="sp">
+              <div class="tabs" id="anaPlat">
+                <button class="tab on">小红书</button><button class="tab">抖音</button><button class="tab">公众号</button><button class="tab">B站</button>
+              </div>
+              <button class="btn" data-act="refresh-ana">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg>
+                回收数据
+              </button>
+            </div>
+          </div>
+          <div class="stat-row">
+            <div class="card card-b"><div class="kpi"><b>12,438</b><span>粉丝</span><span class="delta up">↑ 1,204 较上周</span></div></div>
+            <div class="card card-b"><div class="kpi"><b>8.2<span style="font-size:13px;color:var(--ink-3)">w</span></b><span>本周播放</span><span class="delta up">↑ 23%</span></div></div>
+            <div class="card card-b"><div class="kpi"><b>4.1<span style="font-size:13px;color:var(--ink-3)">%</span></b><span>互动率</span><span class="delta dn">↓ 0.4pt</span></div></div>
+            <div class="card card-b"><div class="kpi"><b>6</b><span>已发内容</span><span class="mut2" style="font-size:11.5px">2 条爆款</span></div></div>
+          </div>
+          <div class="grid2" style="align-items:start">
+            <div class="card">
+              <div class="card-h"><h3>增长对比</h3><div class="sp"><span class="chip o">近 30 天</span></div></div>
+              <div class="card-b">
+                <svg class="chart" viewBox="0 0 520 190" id="lineChart" role="img" aria-label="近 30 天粉丝增长折线图"></svg>
+                <div class="grid4" style="gap:10px;margin-top:14px">
+                  <div><div class="lbl">昨日</div><div class="mono" style="font-size:14px;font-weight:600">+186</div></div>
+                  <div><div class="lbl">上周同期</div><div class="mono" style="font-size:14px;font-weight:600">+142</div></div>
+                  <div><div class="lbl">上月同期</div><div class="mono" style="font-size:14px;font-weight:600">+97</div></div>
+                  <div><div class="lbl">去年同期</div><div class="mono" style="font-size:14px;font-weight:600">+41</div></div>
+                </div>
+              </div>
+            </div>
+            <div class="card">
+              <div class="card-h"><h3>内容表现回收</h3><div class="sp"><span class="chip o">近 6 条</span></div></div>
+              <div class="card-b" style="padding:12px 16px">
+                <table class="tbl">
+                  <thead><tr><th>内容</th><th class="num">播放</th><th class="num">赞</th><th class="num">藏</th><th>结构判定</th></tr></thead>
+                  <tbody>
+                    <tr><td><b>AI 工具越用越笨</b></td><td class="num">31.2k</td><td class="num">412</td><td class="num">89</td><td><span class="chip a">反常识钩子有效</span></td></tr>
+                    <tr><td><b>3 个 Agent 砍流程</b></td><td class="num">8.4k</td><td class="num">96</td><td class="num">41</td><td><span class="chip w">开头太平</span></td></tr>
+                    <tr><td><b>提示词模板合集</b></td><td class="num">2.1k</td><td class="num">18</td><td class="num">7</td><td><span class="chip d">同质化</span></td></tr>
+                    <tr><td><b>我用 7 天戒掉计划</b></td><td class="num">24.6k</td><td class="num">356</td><td class="num">62</td><td><span class="chip a">个人实测线</span></td></tr>
+                    <tr><td><b>公众号排版避坑</b></td><td class="num">5.7k</td><td class="num">52</td><td class="num">120</td><td><span class="chip a">收藏高</span></td></tr>
+                    <tr><td><b>AI 味自查清单</b></td><td class="num">1.2k</td><td class="num">9</td><td class="num">4</td><td><span class="chip d">选题太窄</span></td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+          <div class="grid2" style="align-items:start">
+            <div class="card">
+              <div class="card-h"><h3>内容复盘 · 沉淀回画像</h3><div class="sp"><span class="chip w">2 条待确认</span></div></div>
+              <div class="card-b" style="padding:2px 16px 6px">
+                <div class="mem-item">
+                  <div class="q">1</div>
+                  <div style="flex:1">
+                    <b>「反常识 + 亲手实测」组合的播放中位数是均值的 3.8 倍</b>
+                    <span>来源：近 6 条内容归因。命中 2 条，建议写入风格维度并提高该结构在能力推荐中的权重。</span>
+                    <div class="a">
+                      <button class="btn sm pri" data-act="adopt-mem">采纳并写入画像</button>
+                      <button class="btn sm" data-act="drop-mem">忽略</button>
+                    </div>
+                  </div>
+                </div>
+                <div class="mem-item">
+                  <div class="q">2</div>
+                  <div style="flex:1">
+                    <b>「清单体」内容收藏率高但点赞低，适合涨粉不適合破圈</b>
+                    <span>来源：近 30 天 4 条对比。建议记入长期记忆，作为选题结构的取舍依据。</span>
+                    <div class="a">
+                      <button class="btn sm pri" data-act="adopt-mem">采纳并写入画像</button>
+                      <button class="btn sm" data-act="drop-mem">忽略</button>
+                    </div>
+                  </div>
+                </div>
+                <div class="mem-item">
+                  <div class="q">3</div>
+                  <div style="flex:1">
+                    <b>已沉淀：抖音竖版视频完播率 41%，高于横转竖的 22%</b>
+                    <span>3 天前自动沉淀 · 归因维度：平台偏好</span>
+                    <span class="chip o mono" style="margin-top:6px;width:fit-content">长期记忆 · 已生效</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="card">
+              <div class="card-h"><h3>评论洞察</h3><div class="sp"><button class="btn sm ghost" data-act="pull-comments">拉取评论</button></div></div>
+              <div class="card-b">
+                <div class="bar-row"><span class="mut" style="font-size:12px">求模板</span><div class="bar-t"><div class="bar-f" style="width:82%"></div></div><span class="bar-v">41 条</span></div>
+                <div class="bar-row"><span class="mut" style="font-size:12px">质疑/纠错</span><div class="bar-t"><div class="bar-f b3" style="width:56%"></div></div><span class="bar-v">28 条</span></div>
+                <div class="bar-row"><span class="mut" style="font-size:12px">问怎么做的</span><div class="bar-t"><div class="bar-f" style="width:44%"></div></div><span class="bar-v">22 条</span></div>
+                <div class="bar-row"><span class="mut" style="font-size:12px">纯情绪</span><div class="bar-t"><div class="bar-f b2" style="width:20%"></div></div><span class="bar-v">10 条</span></div>
+                <div class="hr"></div>
+                <div class="help">「求模板」占 41%，是下一条内容的直接素材来源——建议直接做成图文合集。</div>
+                <button class="btn sm pri" style="margin-top:9px" data-act="comments-to-topic">存为选题</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==== 账号画像 ==== -->
+      <section class="view" id="v-profile">
+        <div class="view-pad">
+          <div class="page-head">
+            <div>
+              <h1>账号画像</h1>
+              <p>六维画像是所有 AI 产出的地基。以消息前缀内联，不落全局文件，两个画像不会互相污染。</p>
+            </div>
+            <div class="sp">
+              <div class="tabs" id="profTabs">
+                <button class="tab on">AI 效率观察</button><button class="tab">咖啡探店日记</button><button class="tab">＋ 新建</button>
+              </div>
+              <button class="btn" data-act="export-prof">导出</button>
+            </div>
+          </div>
+          <div class="dims">
+            <div class="card">
+              <div class="card-h"><h3>六维</h3><div class="sp"><span class="chip a">完整度 86%</span></div></div>
+              <div class="card-b tight dim-nav" id="dimNav"></div>
+            </div>
+            <div class="stack">
+              <div class="card">
+                <div class="card-h">
+                  <h3 id="dimTitle">定位 identity</h3>
+                  <div class="sp">
+                    <span class="chip o">Markdown</span>
+                    <button class="btn sm" data-act="ai-fill">AI 帮我补全</button>
+                    <button class="btn sm pri" data-toast="已保存 · 下一轮对话立即生效">保存</button>
+                  </div>
+                </div>
+                <div class="card-b">
+                  <div class="split">
+                    <div>
+                      <div class="field" style="margin-bottom:10px">
+                        <label>编辑（Markdown）</label>
+                        <textarea class="inp mono" rows="12" id="dimEdit" style="font-size:12.5px"></textarea>
+                      </div>
+                      <div class="row" style="gap:8px;flex-wrap:wrap">
+                        <span class="help" id="dimHint">建议 100–300 字，写清楚「你到底是谁」</span>
+                        <span class="chip o mono" style="margin-left:auto" id="dimCount">0 字</span>
+                      </div>
+                    </div>
+                    <div>
+                      <div class="lbl" style="margin-bottom:7px">渲染预览</div>
+                      <div class="mdview md" id="dimView"></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="card" id="redlineCard">
+                <div class="card-h"><h3>偏好红线</h3><div class="sp"><button class="btn sm ghost" data-act="add-redline">＋ 添加</button></div></div>
+                <div class="card-b tight" id="redlines"></div>
+              </div>
+              <div class="card">
+                <div class="card-h"><h3>长期记忆</h3><div class="sp"><span class="chip o" id="memCount">0 条</span><button class="btn sm ghost" data-act="add-mem">＋ 手动记一条</button></div></div>
+                <div class="card-b tight" id="memories"></div>
+              </div>
+              <div class="card">
+                <div class="card-h"><h3>通用模式</h3><div class="sp"><span class="chip o">无画像也能用</span></div></div>
+                <div class="card-b">
+                  <div class="row" style="gap:10px">
+                    <div style="flex:1">
+                      <div class="row" style="gap:7px"><b style="font-size:13px">不带画像直接创作</b><span class="chip a" id="genModeChip">已关闭</span></div>
+                      <div class="help" style="margin-top:3px">打开后本会话不注入画像，适合临时起稿；不会覆盖已有画像。</div>
+                    </div>
+                    <button class="btn" id="genModeBtn" data-act="toggle-genmode">开启</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==== 设置 ==== -->
+      <section class="view" id="v-settings">
+        <div class="view-pad">
+          <div class="page-head">
+            <div>
+              <h1>设置</h1>
+              <p>模型通道、密钥、环境体检。密钥只写不回传，留空保存不覆盖。</p>
+            </div>
+            <div class="sp">
+              <span class="chip o mono">构建 2026.10.02-a1f4c9 · 灰度</span>
+              <button class="btn" data-act="run-doctor">运行体检</button>
+            </div>
+          </div>
+          <div class="grid2" style="align-items:start">
+            <div class="card">
+              <div class="card-h"><h3>模型通道</h3><div class="sp"><span class="chip w">1 项未配置</span></div></div>
+              <div class="card-b" style="padding:0 16px 8px" id="chans"></div>
+            </div>
+            <div class="stack">
+              <div class="card">
+                <div class="card-h"><h3>环境体检 doctor</h3><div class="sp"><span class="chip a" id="docChip">16 / 17 通过</span></div></div>
+                <div class="card-b">
+                  <div class="prog" style="margin-bottom:11px"><i id="docProg" style="width:94%"></i></div>
+                  <div id="docList"></div>
+                  <button class="btn sm" style="margin-top:11px" data-toast="已排队：FFmpeg 缺失项将在下次启动时安装">一键安装缺失项</button>
+                </div>
+              </div>
+              <div class="card">
+                <div class="card-h"><h3>本机 Agent</h3><div class="sp"><span class="chip o">检测到 2 个</span></div></div>
+                <div class="card-b">
+                  <div class="doc-item"><div class="s ok"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M20 6 9 17l-5-5"/></svg></div>MiniMax Code CLI <span class="sp">v1.4.2</span><button class="btn sm" style="margin-left:10px">启用为执行器</button></div>
+                  <div class="doc-item"><div class="s ok"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M20 6 9 17l-5-5"/></svg></div>mcode-tools <span class="sp">v0.9.0</span><button class="btn sm" style="margin-left:10px">启用多模态工具</button></div>
+                  <div class="doc-item"><div class="s warn"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M12 8v5M12 17h.01"/></svg></div>OpenClaw gateway <span class="sp">未运行</span><button class="btn sm" style="margin-left:10px">改为本地 harness</button></div>
+                </div>
+              </div>
+              <div class="card">
+                <div class="card-h"><h3>数据与隐私</h3></div>
+                <div class="card-b stack" style="gap:9px">
+                  <div class="doc-item"><div class="s ok"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M20 6 9 17l-5-5"/></svg></div>出站内容密钥扫描 <span class="sp">BLOCK 级 fail-closed</span></div>
+                  <div class="doc-item"><div class="s ok"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M20 6 9 17l-5-5"/></svg></div>CORS 仅本地来源 <span class="sp">localhost:5173</span></div>
+                  <div class="doc-item"><div class="s ok"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M20 6 9 17l-5-5"/></svg></div>凭证加密存储 <span class="sp">keychain</span></div>
+                  <div class="doc-item"><div class="s ok"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M20 6 9 17l-5-5"/></svg></div>每轮对话落盘 <span class="sp">.session/</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </div>
+  </div>
+</div>
+
+<!-- drawer -->
+<div class="scrim" id="scrim"></div>
+<aside class="drawer" id="drawer">
+  <div class="drawer-h">
+    <div style="flex:1;min-width:0">
+      <div class="row" style="gap:8px"><h2 id="dwTitle" style="font-size:16px;font-weight:600;letter-spacing:-.01em">技能详情</h2><span id="dwMature"></span></div>
+      <div class="row" style="gap:7px;margin-top:6px">
+        <span class="chip o mono" id="dwId">skill/xx</span><span class="chip o" id="dwLayer">制作</span>
+        <span class="chip o mono" id="dwCost">本地 · 免费</span>
+      </div>
+    </div>
+    <button class="iconbtn" data-act="close-drawer"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+  </div>
+  <div class="drawer-b md" id="dwBody"></div>
+  <div class="drawer-f">
+    <span class="help" style="flex:1">就地运行会写入 <code class="mono">outputs/&lt;项目&gt;/</code></span>
+    <button class="btn" data-act="close-drawer">取消</button>
+    <button class="btn pri" id="dwRun">运行</button>
+  </div>
+</aside>
+
+<!-- modal -->
+<div class="modal" id="modal">
+  <div class="card-h" style="border:0;padding:18px 20px 10px">
+    <div class="qi" style="width:32px;height:32px;border-radius:10px"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--warn-ink)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg></div>
+    <div style="flex:1">
+      <h3 id="mdTitle" style="font-size:15px;font-weight:600">确认发布？</h3>
+      <p class="mut" style="font-size:12.5px;margin-top:2px" id="mdSub">这一步会真实发到已登录的账号，无法撤销。</p>
+    </div>
+  </div>
+  <div style="padding:0 20px 6px" id="mdBody"></div>
+  <div class="drawer-f" style="justify-content:flex-end">
+    <button class="btn" data-act="close-modal">再想想</button>
+    <button class="btn pri" id="mdOk">确认发布</button>
+  </div>
+</div>
+
+<div class="toasts" id="toasts"></div>
+<script>
+/* =======================================================================
+   Atelier UI 原型 · 交互脚本（无依赖，纯演示）
+   ======================================================================= */
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+const ICON = {
+  card:'<path d="M3 5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/><path d="m3 15 5-4 4 3 3-2 6 4"/><circle cx="8.5" cy="8.5" r="1.4"/>',
+  pen:'<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/>',
+  video:'<path d="m23 7-7 5 7 5V7Z"/><rect x="1" y="5" width="15" height="14" rx="2.5"/>',
+  flame:'<path d="M12 2s4 4.5 4 8a4 4 0 0 1-8 0c0-1 .3-1.8.7-2.5C7 9 6 10.5 6 13a6 6 0 0 0 12 0c0-5-6-11-6-11Z"/>',
+  doc:'<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6M9 13h6M9 17h4"/>',
+  chart:'<path d="M3 3v18h18"/><path d="m7 15 4-5 3 3 5-7"/>',
+  mic:'<rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v4"/>',
+  bulb:'<path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5V17h8v-3.5A6 6 0 0 0 12 3Z"/>',
+  target:'<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.4"/>',
+  users:'<circle cx="9" cy="8" r="3.4"/><path d="M2.5 20c1.3-3.3 3.6-5 6.5-5s5.2 1.7 6.5 5"/><path d="M16 5.2a3.4 3.4 0 0 1 0 6.6M18 20c-.4-1.5-1-2.7-1.8-3.6"/>',
+  search:'<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>',
+  cog:'<path d="M4 6h10M18 6h2M4 12h2M10 12h10M4 18h8M16 18h4"/><circle cx="16" cy="6" r="2"/><circle cx="8" cy="12" r="2"/><circle cx="14" cy="18" r="2"/>',
+  shield:'<path d="M12 3 4 6.5v5c0 5 3.4 8.7 8 9.5 4.6-.8 8-4.5 8-9.5v-5Z"/>',
+  key:'<circle cx="8" cy="14" r="4.5"/><path d="m11.5 11 8-8M17 5.5l2 2M14.5 8l2 2"/>',
+  stetho:'<path d="M6 3v6a4 4 0 0 0 8 0V3M6 3H4m2 0h2m6 0h-2m2 0h2"/><path d="M10 13v3a5 5 0 0 0 10 0v-1"/><circle cx="20" cy="11" r="2"/>',
+  code:'<path d="m8 6-6 6 6 6M16 6l6 6-6 6"/>',
+  sparkle:'<path d="M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5 18 18M18 6l-2.5 2.5M8.5 15.5 6 18"/>',
+  image:'<rect x="3" y="3" width="18" height="18" rx="2.5"/><circle cx="8.5" cy="8.5" r="1.6"/><path d="m3 16 5-4 4 3 3-2 6 4"/>',
+  cut:'<circle cx="6" cy="6" r="2.6"/><circle cx="6" cy="18" r="2.6"/><path d="M8 7.5 20 19M8 16.5 20 5"/>',
+  music:'<path d="M9 18V6l11-2v12"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/>',
+  film:'<rect x="2" y="4" width="20" height="16" rx="2.5"/><path d="M7 4v16M17 4v16M2 9h5M2 15h5M17 9h5M17 15h5"/>',
+  calendar:'<rect x="3" y="5" width="18" height="16" rx="2.5"/><path d="M3 10h18M8 3v4M16 3v4"/>',
+  list:'<path d="M4 6h16M4 12h16M4 18h10"/>',
+  refresh:'<path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/>',
+  warn:'<path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/>',
+  check:'<path d="M20 6 9 17l-5-5"/>',
+  x:'<path d="M18 6 6 18M6 6l12 12"/>',
+  qr:'<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><path d="M14 14h3v3h-3zM19 19h2M14 21h1"/>'
+};
+const svgIco = (k, s = 15) => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">${ICON[k] || ICON.star || ''}</svg>`;
+
+/* ---------------- toast ---------------- */
+function toast(msg, kind = '') {
+  const w = $('#toasts');
+  const t = document.createElement('div');
+  t.className = 'toast ' + kind;
+  t.innerHTML = (kind === 'ok' ? svgIco('check', 13) : kind === 'warn' ? svgIco('warn', 13) : '') + '<span>' + esc(msg) + '</span>';
+  w.appendChild(t);
+  setTimeout(() => { t.style.transition = 'opacity .25s, transform .25s'; t.style.opacity = '0'; t.style.transform = 'translateY(6px)'; setTimeout(() => t.remove(), 260); }, 2400);
+}
+
+/* ---------------- router ---------------- */
+const TITLES = {
+  workbench: '工作台', chat: '对话工作台', capability: '能力地图', skills: '技能库', hot: '热点发现',
+  topics: '选题库', calendar: '内容日历', library: '内容库', publish: '发布中心',
+  accounts: '账号登录', analytics: '数据复盘', profile: '账号画像', settings: '设置'
+};
+let cur = 'workbench';
+function go(v) {
+  cur = v;
+  $$('.view').forEach(s => s.classList.remove('on'));
+  const el = $('#v-' + v); if (el) el.classList.add('on');
+  $$('.nav-item').forEach(b => b.classList.toggle('on', b.dataset.go === v));
+  $('#crumb').innerHTML = '<b>' + TITLES[v] + '</b>';
+  const showTabs = ['chat', 'capability', 'skills'].includes(v);
+  $('#topTabs').style.display = showTabs ? '' : 'none';
+  $$('#topTabs .tab').forEach(t => t.classList.toggle('on', t.dataset.v === v));
+  const sc = $('#msgs'); if (v === 'chat' && sc) sc.scrollTop = sc.scrollHeight;
+}
+document.addEventListener('click', e => {
+  const g = e.target.closest('[data-go]');
+  if (g) { go(g.dataset.go); return; }
+  const t = e.target.closest('[data-act]');
+  if (t) handle(t.dataset.act, t);
+  const tz = e.target.closest('[data-toast]');
+  if (tz) toast(tz.dataset.toast, 'ok');
+});
+
+/* =====================================================================
+   能力地图
+   ===================================================================== */
+const MATURE = { v0: '已验证', v1: '可用', v2: '需配置', v3: '接入中' };
+const CAPS = [
+  {
+    g: '做内容 · 要成品', d: '给一句主题，产出能直接发的东西',
+    items: [
+      { i: 'card', n: '小红书知识卡', t: '当你说「做成小红书图文」「知识卡」时使用', m: 'v0' },
+      { i: 'pen', n: '通用社媒文案', t: '当你说「写条小红书/微博/知乎文案」时使用', m: 'v0' },
+      { i: 'sparkle', n: '去 AI 感改写', t: '当你说「太 AI 了」「改得自然点」时使用', m: 'v0' },
+      { i: 'image', n: 'AI 生图 / 图生图', t: '当你说「配图」「画一张」时使用', m: 'v2' },
+      { i: 'doc', n: '公众号排版', t: '当你说「排版成公众号 HTML」时使用', m: 'v0' },
+      { i: 'video', n: '一键成片', t: '当你说「做成视频」「竖版成片」时使用', m: 'v2' },
+      { i: 'chart', n: '图表可视化', t: '当你说「把这段数据做成图」时使用', m: 'v1' }
+    ]
+  },
+  {
+    g: '做运营 · 要动作', d: '把「今天发什么」变成明确的下一步',
+    items: [
+      { i: 'flame', n: '今日热榜聚合', t: '当你说「今天有什么热点」时使用', m: 'v0' },
+      { i: 'search', n: '爆款拆解', t: '当你说「拆解这条爆款」时使用', m: 'v0' },
+      { i: 'target', n: '选题评分', t: '当你说「这个选题值得做吗」时使用', m: 'v1' },
+      { i: 'calendar', n: '排入内容日历', t: '当你说「排到周三晚上发」时使用', m: 'v0' },
+      { i: 'shield', n: '发布前预检', t: '当你说「检查一下能不能发」时使用', m: 'v0' }
+    ]
+  },
+  {
+    g: '做账号 · 要增长', d: '用真实数据反过来改内容',
+    items: [
+      { i: 'chart', n: '账号数据 / 增长对比', t: '当你说「这周涨了多少粉」时使用', m: 'v0' },
+      { i: 'users', n: '评论洞察', t: '当你说「评论区都在问什么」时使用', m: 'v1' },
+      { i: 'bulb', n: '内容复盘沉淀', t: '当你说「这次为什么爆」时使用', m: 'v0' },
+      { i: 'search', n: '竞品选题拆解', t: '当你说「对标账号在发什么」时使用', m: 'v2' }
+    ]
+  },
+  {
+    g: '做系统 · 要配置', d: '工具坏了、缺密钥、想体检时用',
+    items: [
+      { i: 'key', n: '账号登录 / 登录态校验', t: '当你说「小红书掉登录了」时使用', m: 'v0' },
+      { i: 'stetho', n: '环境体检 doctor', t: '当你说「环境有问题」时使用', m: 'v0' },
+      { i: 'cog', n: '模型通道自检', t: '当你说「模型连不上」时使用', m: 'v0' },
+      { i: 'code', n: 'CLI 技能直跑', t: '当你说「用命令行跑这个技能」时使用', m: 'v1' }
+    ]
+  }
+];
+$('#capWrap').innerHTML = CAPS.map(g => `
+  <div class="cap-grp">
+    <div class="cap-grp-h">
+      <h3>${esc(g.g)}</h3>
+      <span class="mut" style="font-size:12.5px">${esc(g.d)}</span>
+      <div class="sp"><span class="chip o">${g.items.length} 项能力</span></div>
+    </div>
+    <div class="cap-items">
+      ${g.items.map(c => `
+        <button class="cap" data-fill="帮我做「${esc(c.n)}」">
+          <div class="top">
+            <span class="ci">${svgIco(c.i, 14)}</span>
+            <h4>${esc(c.n)}</h4>
+          </div>
+          <div class="trig">${esc(c.t)}</div>
+          <div class="foot">
+            <span class="mature ${c.m}">${MATURE[c.m]}</span>
+            <span class="go">填入输入框 ${svgIco('check', 11)}</span>
+          </div>
+        </button>`).join('')}
+    </div>
+  </div>`).join('');
+
+/* 点击能力：填入输入框，不自动发送 */
+document.addEventListener('click', e => {
+  const f = e.target.closest('[data-fill]');
+  if (!f) return;
+  go('chat');
+  const ta = $('#ta');
+  ta.value = f.dataset.fill;
+  ta.focus();
+  autoGrow(ta);
+  $('#cbox').animate([{ boxShadow: '0 0 0 0 rgba(16,185,129,.5)' }, { boxShadow: '0 0 0 8px rgba(16,185,129,0)' }], 600);
+  toast('已填入输入框，确认后点发送', 'ok');
+});
+function autoGrow(ta) { ta.style.height = 'auto'; ta.style.height = Math.min(ta.scrollHeight, 200) + 'px'; }
+
+/* =====================================================================
+   技能库
+   ===================================================================== */
+const SKILLS = [
+  { id: 'xhs-card', n: '小红书知识卡', layer: '制作', m: 'v0', cost: '本地 · 免费', i: 'card', p: [{ k: '标题', v: 'AI 工具越用越笨' }, { k: '张数', v: '3' }, { k: '尺寸', v: '1080×1440' }], d: '按平台竖版比例生成卡片组，输出到项目「成品」区。', body: `# 小红书知识卡\n\n把一段内容拆成 **3–9 张竖版卡片**，每张一个论点。\n\n## 硬门禁\n- 尺寸 1080×1440（3:4），单张 ≤ 300KB\n- 文字最小 32px，行距 1.5\n- 极限词扫描 BLOCK 级\n\n## 软提醒\n- 「震惊 / 必看 / 绝了」等 AI 味词只告警\n- 视觉质检：边缘密度、死白率、整体密度三项\n\n\`\`\`yaml\noutput: outputs/<项目>/成品/card-01.png\ngate: [size, wordcount, extreme_words, visual_density]\n\`\`\`` },
+  { id: 'de-ai', n: '去 AI 感改写', layer: '制作', m: 'v0', cost: '本地 · 免费', i: 'pen', p: [{ k: '原文', v: '（粘贴或引用）' }, { k: '风格', v: '随手记' }], d: '砍填充语、打破公式化结构、主动语态、变化节奏。', body: `# 去 AI 感改写\n\n目标不是「换同义词」，是 **拆掉 AI 的节奏**。\n\n## 五维打分（改前 → 改后）\n| 维度 | 说明 |\n|---|---|\n| 直接性 | 删掉铺垫段，直接给结论 |\n| 节奏 | 长短句交替，避免三段等长 |\n| 信任度 | 具体数字、时间、亲身细节 |\n| 活人感 | 允许不完整的句子 |\n| 精炼度 | 每段只留一个信息点 |\n\n## 常见填充语黑名单\n「首先 / 其次 / 值得注意的是」「在当今快节奏的时代」「总而言之」` },
+  { id: 't2s', n: '语音识别转字幕', layer: '制作', m: 'v0', cost: '本地模型', i: 'mic', p: [{ k: '音频', v: '（拖入）' }, { k: '格式', v: 'SRT' }], d: '音频/视频转 SRT/ASS/TXT/JSON，本地模型不上传。', body: `# 语音识别转字幕\n\n本地 faster-whisper 推理，**默认不上传音频**。\n\n## 输出\n- \`SRT\` / \`ASS\`（可烧录样式）/ \`TXT\` / \`JSON\`（含分句时间戳）\n\n## 门禁\n- 时间轴单调不回退（硬）\n- 静音段 < 0.4s 合并（软）` },
+  { id: 'one-video', n: '一键成片', layer: '制作', m: 'v2', cost: '按量计费 · 需密钥', i: 'video', needKey: 'MINIMAX_API_KEY', keyLabel: 'MiniMax API Key', d: '主题 → 文案 → 配图/AI 视频 → 配音 → 字幕 → BGM → 合成。', body: `# 一键成片\n\n**付费操作**：调用 AI 生视频前先给费用预估，确认后才执行。\n\n## 流水线\n1. 文案（复用母版内容）\n2. 分镜脚本（3–8 个镜头）\n3. 画面：AI 生图 或 AI 生视频（可切换）\n4. 配音：TTS 云端优先，edge 兜底\n5. 字幕：识别 + 烧录\n6. BGM：自动闪避混音\n7. 合成：9:16 / 16:9\n\n## 确认点\n> 生视频 ¥1.2 / 段 × 5 段 ≈ ¥6.0，生图 ¥0.1 / 张 × 12 张 ≈ ¥1.2，配音 ¥0.4。总计 ≈ ¥7.6。\n\n点「确认」才执行。` },
+  { id: 'aigc-img', n: 'AI 生图', layer: '制作', m: 'v2', cost: '按量计费 · 需密钥', i: 'image', needKey: 'MINIMAX_API_KEY', keyLabel: 'MiniMax API Key', d: '文生图 / 图生图 / 变体，输出到成品区。', body: `# AI 生图\n\n- 文生图、图生图、局部重绘、风格变体\n- 默认 2:3 竖版 1080×1620\n\n**费用规则**：执行前展示预估（张数 × 单价），用户确认后扣费。` },
+  { id: 'music', n: 'AI 音乐', layer: '制作', m: 'v3', cost: '按量计费 · 接入中', i: 'music', needKey: 'MUSIC_API_KEY', keyLabel: '音乐 Provider Key', d: '生成原创 BGM，接入中（P3）。', body: `# AI 音乐（接入中）\n\n当前未接入 provider。配置密钥后可用。\n\n> 未配置不会影响其他功能——能力地图会把它标成「接入中」而不是报错。` },
+  { id: 'hot', n: '多平台热榜聚合', layer: '发现', m: 'v0', cost: '免费 · 缓存 10min', i: 'flame', p: [{ k: '平台', v: '全选' }, { k: '条数', v: '50' }], d: '抖音/微博/B站/小红书/知乎/头条/百度 7 源。', body: `# 多平台热榜聚合\n\n7 源并发拉取，**8s 内返回或显示明确加载态**。\n\n## 缓存\n- TTL 10 分钟，切 tab 不重复拉取\n- 抓取失败回落上次快照，并在 UI 上标注「12s 前」\n\n## 深度加载\n抖音增量翻页：40–70s / 约 120 次请求 / 有风控风险，必须显式提示代价。` },
+  { id: 'viral', n: '爆款拆解', layer: '策划', m: 'v0', cost: 'LLM · 约 ¥0.05', i: 'search', p: [{ k: '对标内容', v: '（粘贴链接或正文）' }], d: '6 段式拆解：概括/钩子/结构/为何火/可复制模板/结合画像出选题。', body: `# 爆款拆解\n\n固定 6 段输出，**第 6 段必须结合当前画像**给具体选题。\n\n1. 一句话概括\n2. 前 3 秒钩子拆解\n3. 结构骨架（分点方式）\n4. 为什么火（情绪 / 实用 / 身份认同）\n5. 可复制模板（填空式）\n6. 结合你的「AI 效率观察」画像，给 3 个可做选题` },
+  { id: 'score', n: '选题评分', layer: '策划', m: 'v1', cost: 'LLM · 约 ¥0.03', i: 'target', d: '流量/匹配/差异/时效/变现/成本/风险 7 维打分。', body: `# 选题评分\n\n7 维加权 → 总分 + 结论（做 / 不做 / 改方向）。\n\n- 硬伤项（同质化、违禁）直接给「不做」\n- 单维分低但总分高 → 给「改方向」和具体改法` },
+  { id: 'cal', n: '内容日历排期', layer: '策划', m: 'v0', cost: '本地 · 免费', i: 'calendar', d: '选题排入月视图，平台活动占位提醒。', body: `# 内容日历排期\n\n- 状态流转：选题 → 草稿 → 待发 → 已发\n- 平台活动：只读占位条（斜纹样式），不可被内容覆盖\n- 提前 N 天提醒（N 默认 3 天）` },
+  { id: 'gate', n: '发布前预检', layer: '发布', m: 'v0', cost: '本地 · 免费', i: 'shield', d: '极限词/医疗功效硬门禁 + 标题打分 + 人设一致性软提醒。', body: `# 发布前预检\n\n## 硬门禁（阻断）\n- 各平台字数上限，超限标红且禁止发布\n- 极限词、医疗功效、违禁品（BLOCK 级 fail-closed）\n- 出站内容密钥扫描（发现密钥直接拒绝发布）\n\n## 软提醒（不阻断）\n- AI 味重、人设不符、标题偏弱\n- 只告警并给改法，不替用户做决定` },
+  { id: 'xhs-pub', n: '小红书发布', layer: '发布', m: 'v0', cost: '浏览器自动化', i: 'card', needKey: 'XHS_COOKIE', keyLabel: 'Cookie（可选，扫码可免）', d: '图文 + 视频，风控风险高，默认人工确认。', body: `# 小红书发布\n\n- 需登录态真校验通过\n- 风控风险高：平台可能检测自动化\n- **默认保留「发布前人工确认」**，不建议无人值守定时发布\n- 失败必须给明确原因（哪个字段没过 / 哪个接口报错）` },
+  { id: 'dy-pub', n: '抖音发布', layer: '发布', m: 'v0', cost: '浏览器自动化', i: 'video', d: '仅视频；风控时弹短信验证码弹窗（等待 5 分钟）。', body: `# 抖音发布\n\n- 仅支持视频（图文会被平台拒）\n- 短信墙：弹窗提示，等待 5 分钟，超时明确报错\n- 错误码映射到人话，例如 \`dy_auth_4012\` → 「登录态过期，需重新扫码 + 短信验证码」` },
+  { id: 'gzh-pub', n: '公众号发布', layer: '发布', m: 'v0', cost: '官方 API', i: 'doc', needKey: 'GZH_APPID / GZH_APPSECRET', keyLabel: 'AppID + AppSecret', d: '凭证登录，Markdown → 不掉样式的 HTML，需封面图。', body: `# 公众号发布\n\n- 凭证登录：AppID / AppSecret（只写不回传）\n- 排版：Markdown → 内联样式 HTML，粘贴到后台不掉样\n- 必须有封面图，缺封面在预检里阻断` },
+  { id: 'analytics', n: '账号数据回收', layer: '归因', m: 'v0', cost: '浏览器自动化', i: 'chart', d: '粉丝/获赞/作品数 + 与昨日上周上月去年同期对比。', body: `# 账号数据回收\n\n- 定时 + 手动\n- **失败时保留上次快照，不清空已有数据**\n- 快照带时间戳，UI 显示「12:04 快照」` },
+  { id: 'retro', n: '内容复盘沉淀', layer: '归因', m: 'v0', cost: 'LLM · 约 ¥0.02', i: 'bulb', d: '有效结构与偏好沉淀回画像（长期记忆）。', body: `# 内容复盘沉淀\n\n- 从已发内容提取「结构规律」和「你的偏好」\n- 写成**候选记忆**给用户确认，不直接改画像\n- 用户点「采纳」才写入长期记忆` },
+  { id: 'comment', n: '评论洞察', layer: '归因', m: 'v1', cost: '浏览器自动化', i: 'users', d: '拉取评论，提取高频反馈，可一键存为选题。', body: `# 评论洞察\n\n- 按「求模板 / 质疑 / 追问 / 情绪」聚类\n- 高频诉求可直接转选题入库` },
+  { id: 'doctor', n: '环境体检 doctor', layer: '通用', m: 'v0', cost: '本地 · 免费', i: 'stetho', d: '15+ 项检查，覆盖 Python/Node/FFmpeg/Chromium/密钥/网络。', body: `# 环境体检 doctor\n\n## 检查项（节选）\n- Python ≥ 3.10（当前 3.12.4 ✓）\n- Node ≥ 22（当前 26.10.0 ✓）\n- FFmpeg（9.0.2 ✓）\n- Chromium（✓ /Applications/Google Chrome.app）\n- 各通道密钥连通性\n- 磁盘可写空间\n\n## 原则\n**失败要留痕**：每一项给明确原因，不返回「500」。一键安装可重复运行，失败即停。` },
+  { id: 'chat', n: '对话（流式）', layer: '通用', m: 'v0', cost: 'LLM · 按量', i: 'code', needKey: 'LLM_API_KEY', keyLabel: '对话模型 Key', d: 'SSE 流式 + 独立思考流 + 随时中断 + 断线恢复。', body: `# 对话（流式）\n\n- SSE 标准推送，**不用 tail 文件**\n- 思考过程走独立流，可折叠\n- 中断 ≤ 2s 生效\n- 断线重连后从服务端取回该轮完整结果（每轮落盘）` },
+  { id: 'cron', n: '定时发布', layer: '发布', m: 'v3', cost: '本地调度', i: 'calendar', d: '排期到点自动发布（P2，建议与人工确认冲突时禁用）。', body: `# 定时发布（后期）\n\n风险：无人值守发布在小红书/抖音容易触发风控。\n\n**当前策略**：接入中。开启时若「发布前人工确认」为开，会在到点时提醒而不是直接发。` }
+];
+const LAYERS = ['发现', '策划', '制作', '发布', '归因', '通用'];
+$('#skWrap').innerHTML = LAYERS.map(L => {
+  const list = SKILLS.filter(s => s.layer === L);
+  if (!list.length) return '';
+  return `<div class="cap-grp">
+    <div class="cap-grp-h"><h3>${L}层技能</h3><span class="mut" style="font-size:12.5px">${list.length} 个</span>
+      <div class="sp"><span class="chip o">${list.filter(s => s.m === 'v0').length} 个已验证</span></div></div>
+    <div class="sk-grid">
+      ${list.map(s => `
+        <div class="sk ${s.needKey && s.m !== 'v0' ? 'locked' : ''}" data-skill="${s.id}">
+          ${s.needKey && s.m !== 'v0' ? `<span class="warnbadge">!</span><span class="tool-tip">缺 ${s.needKey.split(' / ')[0]}，运行已禁用</span>` : ''}
+          <div class="top">
+            <span class="ci" style="width:26px;height:26px;border-radius:8px;background:var(--surface-2);color:var(--ink-2);display:grid;place-items:center">${svgIco(s.i, 14)}</span>
+            <div style="flex:1;min-width:0">
+              <h4>${esc(s.n)}</h4>
+              <span class="mature ${s.m}" style="margin-top:3px;display:inline-block">${MATURE[s.m]}</span>
+            </div>
+          </div>
+          <p>${esc(s.d)}</p>
+          <div class="foot">
+            <span class="chip o mono" style="height:19px;font-size:10px">${esc(s.cost)}</span>
+            <button class="btn sm" style="margin-left:auto" data-sk-open="${s.id}">详情 / 运行</button>
+          </div>
+        </div>`).join('')}
+    </div>
+  </div>`;
+}).join('') + `<div class="card card-b" style="margin-top:6px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+    <span class="mut" style="font-size:12.5px">MVP 核心技能 40 个已建 ${SKILLS.length} 个（原型只展示代表性子集）</span>
+    <span class="chip o mono" style="margin-left:auto">skills/ · 每个技能一个 SKILL.md</span>
+  </div>`;
+$('#skTabs .tab').innerHTML = '全部 <span class="mut2">' + SKILLS.length + '</span>';
+
+function openSkill(id) {
+  const s = SKILLS.find(x => x.id === id); if (!s) return;
+  const locked = s.needKey && s.m !== 'v0';
+  $('#dwTitle').textContent = s.n;
+  $('#dwId').textContent = 'skill/' + s.id;
+  $('#dwLayer').textContent = s.layer + '层';
+  $('#dwCost').textContent = s.cost;
+  $('#dwMature').innerHTML = `<span class="mature ${s.m}">${MATURE[s.m]}</span>`;
+  let body = `<div class="md">${mdRender(s.body)}</div>`;
+  if (s.p) body += `<div class="hr"></div><div class="lbl" style="margin-bottom:9px">运行参数</div>` +
+    s.p.map(p => `<div class="field" style="margin-bottom:9px"><label>${esc(p.k)}</label><input class="inp" value="${esc(p.v)}"></div>`).join('');
+  if (s.needKey) {
+    body += `<div class="hr"></div>
+      <div class="lbl" style="margin-bottom:9px">API 配置</div>
+      <div class="field" style="margin-bottom:9px">
+        <label>${esc(s.keyLabel)}</label>
+        <div class="key-in">
+          <input class="inp mono" type="password" placeholder="${locked ? '未配置 · 填写后可运行' : '已配置 · 留空不覆盖'}">
+          <button class="eye" data-act="toggle-key">${svgIco('key', 13)}</button>
+        </div>
+        <span class="help">${locked ? '<b style="color:var(--warn-ink)">当前未配置</b>，运行按钮已禁用。' : '已配置（末尾 <span class="mono">••••3f7a</span>）。留空保存不会覆盖已存值。'}</span>
+      </div>
+      <div class="field"><label>Base URL（可选）</label><input class="inp mono" value="https://api.minimaxi.com/v1"></div>`;
+  }
+  body += `<div class="hr"></div><div class="lbl" style="margin-bottom:9px">产物落盘位置</div>
+    <div class="path">outputs/${s.id}/</div>
+    <div class="help" style="margin-top:7px">路径解析统一由 <span class="mono">paths.py</span> 收口，业务代码不自己拼路径。</div>`;
+  $('#dwBody').innerHTML = body;
+  const run = $('#dwRun');
+  if (locked) { run.disabled = true; run.textContent = '缺密钥，已禁用'; run.title = '缺 ' + s.needKey; }
+  else { run.disabled = false; run.textContent = '运行'; run.title = ''; run.onclick = () => { toast('已提交：' + s.n + ' → outputs/' + s.id + '/', 'ok'); closeDrawer(); }; }
+  openDrawer();
+}
+function mdRender(s) {
+  const inline = t => esc(t).replace(/`([^`]+)`/g, '<code>$1</code>').replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>');
+  const out = []; let list = false;
+  for (let raw of s.split('\n')) {
+    const l = raw.trimEnd();
+    if (/^\|/.test(l)) {
+      if (list) { out.push('</ul>'); list = false; }
+      const cells = l.split('|').slice(1, -1).map(c => c.trim());
+      if (cells.every(c => /^-+$/.test(c))) continue;
+      if (!out.length || !/<table/.test(out[out.length - 1])) out.push('<table class="tbl" style="margin:8px 0"><tr>' + cells.map(c => `<td>${inline(c)}</td>`).join('') + '</tr></table>');
+      else out.push('<table class="tbl" style="margin:8px 0"><tr>' + cells.map(c => `<td>${inline(c)}</td>`).join('') + '</tr></table>');
+      continue;
+    }
+    if (/^[-*] /.test(l)) { if (!list) { out.push('<ul>'); list = true; } out.push('<li>' + inline(l.slice(2)) + '</li>'); continue; }
+    if (list) { out.push('</ul>'); list = false; }
+    if (/^### /.test(l)) { out.push('<h3>' + inline(l.slice(4)) + '</h3>'); continue; }
+    if (/^## /.test(l)) { out.push('<h3>' + inline(l.slice(3)) + '</h3>'); continue; }
+    if (/^# /.test(l)) { out.push('<h3>' + inline(l.slice(2)) + '</h3>'); continue; }
+    if (/^> /.test(l)) { out.push('<blockquote>' + inline(l.slice(2)) + '</blockquote>'); continue; }
+    if (/^```/.test(l)) { out.push(l.startsWith('```') && !out._in ? 'open' : 'close'); continue; }
+    if (!l.trim()) { out.push(''); continue; }
+    out.push('<p>' + inline(l) + '</p>');
+  }
+  if (list) out.push('</ul>');
+  return out.filter(x => x !== 'open' && x !== 'close').join('');
+}
+document.addEventListener('click', e => {
+  const o = e.target.closest('[data-sk-open]');
+  if (o) { e.stopPropagation(); openSkill(o.dataset.skOpen); }
+});
+
+/* drawer / modal */
+function openDrawer() { $('#drawer').classList.add('on'); $('#scrim').classList.add('on'); }
+function closeDrawer() { $('#drawer').classList.remove('on'); if (!$('#modal').classList.contains('on')) $('#scrim').classList.remove('on'); }
+function openModal(o) {
+  $('#mdTitle').textContent = o.title; $('#mdSub').textContent = o.sub || '';
+  $('#mdBody').innerHTML = o.body || ''; $('#mdOk').textContent = o.ok || '确认';
+  $('#mdOk').className = 'btn ' + (o.danger ? 'danger' : 'pri');
+  $('#mdOk').onclick = () => { closeModal(); o.onOk && o.onOk(); };
+  $('#modal').classList.add('on'); $('#scrim').classList.add('on');
+}
+function closeModal() { $('#modal').classList.remove('on'); if (!$('#drawer').classList.contains('on')) $('#scrim').classList.remove('on'); }
+$('#scrim').addEventListener('click', () => { closeModal(); closeDrawer(); });
+
+/* =====================================================================
+   对话工作台
+   ===================================================================== */
+const ta = $('#ta');
+ta.addEventListener('input', () => autoGrow(ta));
+ta.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
+});
+let streaming = false, stopFn = null;
+function addMsg(who, html, extra = '') {
+  const wrap = document.createElement('div');
+  wrap.className = 'msg ' + who;
+  wrap.innerHTML = `<div class="who">${who === 'u' ? 'Mr' : 'AI'}</div><div class="bd">
+    <div class="nm">${who === 'u' ? '你' : 'Atelier'} <span class="mut2">${new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}</span>${extra}</div>
+    <div class="bubble">${html}</div></div>`;
+  $('#msgsIn').appendChild(wrap);
+  $('#msgs').scrollTop = $('#msgs').scrollHeight;
+  return wrap;
+}
+const DEMO = `先说结论：这个标题在小红书有点长，「3 个 Agent」不是用户会搜的词。\n\n<b>改法</b>：把结果前置，因果后置 —— <code>我用 3 个 Agent 砍掉了一半内容流程</code>（19 字）。\n\n抖音侧建议换成口播节奏：<code>内容流程砍一半，我只做了 3 件事</code>（18 字），留悬念但不夸张。`;
+function send() {
+  const v = ta.value.trim();
+  if (!v) { toast('说点什么，或点上方能力地图'); return; }
+  const atts = $$('#atts .f').map(f => f.dataset.name);
+  addMsg('u', esc(v).replace(/\n/g, '<br>') + (atts.length ? `<div class="att" style="margin-top:9px;margin-bottom:0">${atts.map(a => `<span class="f" style="pointer-events:none"><span class="th" style="background:var(--ink-3)">${a.split('.').pop().toUpperCase().slice(0, 3)}</span>${esc(a)}</span>`).join('')}</div><div class="help" style="margin-top:5px">消息区只显示实际输入文字，附件单独挂载</div>` : ''));
+  ta.value = ''; autoGrow(ta); $('#atts').innerHTML = '';
+  streamReply();
+}
+function streamReply() {
+  if (streaming) return;
+  streaming = true;
+  const m = addMsg('a', '');
+  const bub = m.querySelector('.bubble');
+  bub.innerHTML = `<details class="think" open><summary>${svgIco('bulb', 12)} 思考中…</summary><div class="tb" id="tb"></div></details>
+    <div id="streamOut"></div><div class="typing" id="typ"><i class="d"></i><i class="d"></i><i class="d"></i><span style="margin-left:4px">正在生成</span></div>`;
+  const steps = ['检索当前 7 源热榜…', '匹配画像：反常识 + 亲手实测…', '检查平台字数与合规…'];
+  let si = 0;
+  const st = setInterval(() => { $('#tb').textContent += (si ? '\n' : '') + (si + 1) + '. ' + steps[si]; si++; if (si >= steps.length) clearInterval(st); }, 320);
+  $('#streamState').innerHTML = `<button class="stopbtn" data-act="stop">${svgIco('x', 11)} 停止生成</button>`;
+  const out = $('#streamOut'), typ = $('#typ');
+  const text = DEMO;
+  let i = 0, acc = '';
+  const tick = setInterval(() => {
+    if (!streaming) return;
+    const step = 2 + Math.floor(Math.random() * 3);
+    acc += text.slice(i, i + step); i += step;
+    out.innerHTML = mdInline(acc) + '<span class="caret"></span>';
+    $('#msgs').scrollTop = $('#msgs').scrollHeight;
+    if (i >= text.length) finish(true);
+  }, 22);
+  function mdInline(t) { return esc(t).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').replace(/\n\n/g, '</p><p>').replace(/\n/g, '<br>'); }
+  function finish(ok) {
+    clearInterval(tick); clearInterval(st);
+    streaming = false; stopFn = null;
+    out.innerHTML = mdInline(acc) + (ok ? '' : ' <span class="mut2" style="font-size:12px">（已停止，保留了已生成内容）</span>');
+    typ.remove();
+    const th = m.querySelector('.think');
+    th.open = false;
+    th.querySelector('summary').innerHTML = svgIco('bulb', 12) + ' 思考过程（1.4s）';
+    $('#streamState').innerHTML = '';
+    toast(ok ? '本轮已落盘 .session/ · 断线可恢复' : '已停止 · 内容已保留', ok ? 'ok' : 'warn');
+  }
+  stopFn = () => finish(false);
+}
+function handle(act, el) {
+  switch (act) {
+    case 'stop': if (stopFn) stopFn(); break;
+    case 'send': send(); break;
+    case 'newchat':
+      go('chat');
+      $('#msgsIn').innerHTML = `<div class="empty" style="padding:48px 20px">
+        <h4>新会话 · 说清楚你要什么</h4>
+        <p>当前画像「AI 效率观察」已注入。也可以点下面的场景直接开始。</p>
+        <div class="scn" style="margin-top:18px;max-width:560px;margin-left:auto;margin-right:auto">
+          <button data-fill="把今天的热榜第一条写成小红书图文"><b>${svgIco('flame', 14)} 追热点</b><span>抓今天热榜第一条，直接出图文</span></button>
+          <button data-fill="拆解这条爆款："><b>${svgIco('search', 14)} 拆爆款</b><span>粘贴对标内容，6 段式拆解 + 出选题</span></button>
+          <button data-fill="把这条内容去 AI 感改写"><b>${svgIco('pen', 14)} 去 AI 感</b><span>五维打分对比，直接给改后版本</span></button>
+          <button data-fill="帮我做「一键成片」"><b>${svgIco('video', 14)} 出视频</b><span>主题 → 竖版成片，含配音字幕</span></button>
+        </div>
+      </div>`;
+      toast('已开新会话 · 画像已注入', 'ok');
+      break;
+    case 'clear': $('#msgsIn').innerHTML = ''; toast('对话已清空（.session 仍保留）'); break;
+    case 'demo-stream':
+      go('chat');
+      ta.value = '帮我把母版标题改得更适合小红书和抖音'; autoGrow(ta);
+      setTimeout(() => { $('#ta').value = ''; addMsg('u', '帮我把母版标题改得更适合小红书和抖音'); streamReply(); }, 260);
+      break;
+    case 'pick-file': addAtt('参考对标.pdf', 'DOC'); addAtt('封面参考.png', 'IMG'); toast('已添加 2 个素材（演示）', 'ok'); break;
+    case 'send-to-publish': go('publish'); toast('已把这份内容送进发布中心', 'ok'); break;
+    case 'attach-to-publish': go('publish'); toast('已挂载到发布草稿', 'ok'); break;
+    case 'close-drawer': closeDrawer(); break;
+    case 'close-modal': closeModal(); break;
+    case 'toggle-key': {
+      const i = el.parentElement.querySelector('input');
+      i.type = i.type === 'password' ? 'text' : 'password';
+      break;
+    }
+    case 'do-publish': doPublish(); break;
+    case 'autofix': autofix(); break;
+    case 'schedule': toast('已排期：明天 18:00 发送（会提前 10 分钟提醒）', 'ok'); break;
+    case 'regen': toast('正在重新适配 2 个平台…'); break;
+    case 'reload-hot': reloadHot(); break;
+    case 'deep-load':
+      openModal({
+        title: '深度加载抖音增量？', sub: '这一步很慢且有代价，先看清楚再决定。', ok: '我知道代价，继续',
+        body: `<div class="precheck"><div class="s w"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M12 8v5M12 17h.01"/></svg></div>
+          <div><b>预计 40–70 秒</b><span>要翻约 6 页增量，每页 20 条</span></div></div>
+          <div class="precheck"><div class="s d"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></div>
+          <div><b>约 120 次请求</b><span>可能触发抖音风控，建议不要在登录态刚过期时做</span></div></div>`,
+        onOk: () => { const el = $('#hotList'); el.style.opacity = '.45'; el.style.pointerEvents = 'none';
+          setTimeout(() => { el.style.opacity = ''; el.style.pointerEvents = ''; toast('已增量加载 118 条', 'ok'); }, 2200); }
+      });
+      break;
+    case 'new-topic': toast('已新建空白选题（演示）', 'ok'); break;
+    case 'adopt-sugg': toast('已采纳并排到周四 20:00', 'ok'); break;
+    case 'show-cal-sugg': toast('已生成近 14 天建议 6 条，见选题评分区', 'ok'); break;
+    case 'delete-file': doDelete(); break;
+    case 'qr': doQR(el.dataset.p); break;
+    case 'logout': openModal({
+      title: '登出「' + el.dataset.p + '」？', sub: '会清除本地登录态，下次发布需要重新扫码。', ok: '登出', danger: true,
+      body: `<div class="help">凭证保存在系统 keychain，登出后本地不留残留。历史发布记录不受影响。</div>`,
+      onOk: () => toast('已登出「' + el.dataset.p + '」', 'warn')
+    }); break;
+    case 'verify-all': toast('正在校验 7 个平台登录态…'); setTimeout(() => toast('校验完成：抖音失效，其余有效', 'warn'), 1400); break;
+    case 'verify-gzh': toast('凭证有效 · 今日配额剩余 890/1000', 'ok'); break;
+    case 'refresh-ana': toast('正在回收数据…'); setTimeout(() => toast('已回收 3 条 · 失败 1 条已保留上次快照', 'ok'), 1500); break;
+    case 'pull-comments': toast('已拉取 101 条评论'); break;
+    case 'comments-to-topic': toast('已存为选题「求模板类内容合集」', 'ok'); break;
+    case 'adopt-mem': el.closest('.mem-item').querySelector('b').textContent = '已写入长期记忆 ✓'; el.parentElement.innerHTML = `<span class="chip o mono" style="width:fit-content">长期记忆 · 已生效</span>`; toast('已写入画像长期记忆，下一轮对话生效', 'ok'); break;
+    case 'drop-mem': el.closest('.mem-item').remove(); toast('已忽略'); break;
+    case 'ai-fill': toast('AI 正在补全（演示）'); setTimeout(() => { $('#dimEdit').value += '\n- 差异点：只讲「我亲自用过」的流程，不做工具测评'; renderDim(); }, 500); break;
+    case 'add-redline': $('#redlines').insertAdjacentHTML('beforeend', `<div class="redline"><span>新红线 ${$('#redlines').children.length + 1}（演示）</span><span class="chip o">点 × 删除</span></div>`); break;
+    case 'add-mem': $('#memories').insertAdjacentHTML('afterbegin', `<div class="mem-item"><div class="q">新</div><div><b>手动记一条偏好（演示）</b><span>来源：手动 · 立即生效</span></div></div>`); updateMemCount(); toast('已记住，下一轮对话生效', 'ok'); break;
+    case 'toggle-genmode': {
+      const on = $('#genModeBtn').textContent === '开启';
+      $('#genModeBtn').textContent = on ? '关闭' : '开启';
+      $('#genModeBtn').className = 'btn ' + (on ? '' : 'pri');
+      $('#genModeChip').textContent = on ? '已开启' : '已关闭';
+      $('#genModeChip').className = 'chip ' + (on ? 'a' : 'o');
+      toast(on ? '通用模式：本会话不注入画像' : '已切回画像模式', on ? 'warn' : 'ok');
+      break;
+    }
+    case 'export-prof': toast('已导出 profiles/ai-efficiency.md', 'ok'); break;
+    case 'run-doctor': runDoctor(); break;
+  }
+}
+function addAtt(name, kind) {
+  const c = { IMG: '#10b981', VID: '#3b82f6', AUD: '#f59e0b', DOC: '#8b5cf6' }[kind] || '#78716c';
+  $('#atts').insertAdjacentHTML('beforeend', `<span class="f" data-name="${esc(name)}"><span class="th" style="background:${c}">${kind}</span>${esc(name)}<span class="x" data-act="rm-att">✕</span></span>`);
+}
+$('#atts').addEventListener('click', e => { if (e.target.dataset.act === 'rm-att') e.target.closest('.f').remove(); });
+/* 拖拽 / 粘贴 */
+const cbox = $('#cbox');
+['dragenter', 'dragover'].forEach(ev => cbox.addEventListener(ev, e => { e.preventDefault(); cbox.classList.add('drag'); }));
+['dragleave', 'drop'].forEach(ev => cbox.addEventListener(ev, e => { e.preventDefault(); if (ev === 'dragleave' && cbox.contains(e.relatedTarget)) return; cbox.classList.remove('drag'); }));
+cbox.addEventListener('drop', e => { const f = e.dataTransfer.files[0]; if (f) { addAtt(f.name, f.type.split('/')[0].toUpperCase().slice(0, 3)); toast('已添加素材：' + f.name, 'ok'); } });
+document.addEventListener('paste', e => {
+  if (cur !== 'chat') return;
+  const items = [...(e.clipboardData ? e.clipboardData.items : [])];
+  const f = items.find(i => i.type.startsWith('image/'));
+  if (f) { const file = f.getAsFile(); addAtt(file ? file.name.slice(0, 18) : '粘贴的图片.png', 'IMG'); toast('已粘贴图片（消息区不显示文件名）', 'ok'); }
+});
+/* 问答题卡片 */
+document.addEventListener('click', e => {
+  const o = e.target.closest('.qopt'); if (!o) return;
+  const card = o.closest('.qcard');
+  $$('.qopt', card).forEach(x => x.classList.add('locked'));
+  o.classList.add('picked');
+  const val = o.textContent.trim().replace(/^[ABC]/, '');
+  const opts = card.querySelector('.qopts');
+  opts.style.display = 'none';
+  card.querySelector('.help').style.display = 'none';
+  card.querySelector('.qt').innerHTML = svgIco('check', 14) + ' 已确认';
+  card.insertAdjacentHTML('beforeend', `<div class="qdone">${svgIco('check', 13)} 你的选择：${esc(val)} · 已在当前会话锁定，不会重复提问</div>`);
+  addMsg('u', esc(val));
+  toast('已提交，AI 继续按你的选择产出', 'ok');
+});
+/* 会话切换 */
+$('#sessions').addEventListener('click', e => {
+  if (e.target.closest('.act')) { e.stopPropagation(); toast('演示原型：归档/重命名未展开', 'warn'); return; }
+  const s = e.target.closest('.sess'); if (!s) return;
+  $$('.sess').forEach(x => x.classList.remove('on')); s.classList.add('on');
+  toast('已切换会话：' + s.querySelector('b').textContent);
+});
+$('#ta').addEventListener('focus', () => { const s = $('.sess.on'); if (!s) $$('.sess')[0].classList.add('on'); });
+
+/* =====================================================================
+   热点
+   ===================================================================== */
+const SOURCES = [
+  { n: '抖音', c: 50, ic: 'flame' }, { n: '微博', c: 50, ic: 'flame' }, { n: '小红书', c: 40, ic: 'flame' },
+  { n: '哔哩哔哩', c: 40, ic: 'flame' }, { n: '知乎', c: 30, ic: 'flame' }, { n: '今日头条', c: 40, ic: 'flame' },
+  { n: '百度', c: 30, ic: 'flame' }
+];
+$('#srcList').innerHTML = SOURCES.map((s, i) => `<button class="${i === 0 ? 'on' : ''}" data-src="${esc(s.n)}">${svgIco(s.ic, 15)}<span>${esc(s.n)}</span><span class="n">${s.c}</span></button>`).join('')
+  + `<div class="hr"></div><div class="nav-label">数据源类型</div>
+     <button class="on"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M4 19V9M10 19V5M16 19v-6M20 19H2"/></svg><span>热搜榜</span></button>
+     <button><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><circle cx="12" cy="8" r="3.4"/><path d="M5 20c1.4-3.2 4-4.8 7-4.8s5.6 1.6 7 4.8"/></svg><span>关注的博主</span><span class="n">12</span></button>
+     <button><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="m12 3 2.6 5.6 6.4.8-4.7 4.3 1.3 6.3L12 17l-5.6 3 1.3-6.3L3 9.4l6.4-.8Z"/></svg><span>我的收藏</span><span class="n" id="favN2">0</span></button>`;
+$('#srcList').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  $$('#srcList button').forEach(x => x.classList.remove('on')); b.classList.add('on');
+  const isCache = !b.dataset.src || b.dataset.src === '抖音';
+  $('#cacheChip').innerHTML = isCache
+    ? '<span class="live-dot" style="background:var(--accent)"></span>缓存命中 · 0.3s'
+    : '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="spin"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/></svg>实时拉取中…';
+  if (!isCache) setTimeout(() => { $('#cacheChip').innerHTML = '<span class="live-dot" style="background:var(--accent)"></span>刚更新 · 1.8s'; }, 1200);
+});
+const HOTS = [
+  ['AI 工具越用越笨', '1.2w', '+312%', '抖音'], ['第一批 90 后开始整顿职场', '9820', '+180%', '抖音'],
+  ['iPhone 18 影像提前泄露', '8760', '+92%', '抖音'], ['普通人怎么用 Agent 省钱', '6540', '+76%', '抖音'],
+  ['小红书「反内卷」新规', '4.1w', '+240%', '微博'], ['大学生开始「付费上班」', '2.7w', '+160%', '微博'],
+  ['AI 味文案自查清单', '8320', '+88%', '小红书'], ['把 AI 当实习生用的 7 天实测', '1.1w', '+205%', '小红书'],
+  ['一人公司 2026', '9640', '+120%', 'B站'], ['提示词已经没用了吗', '7210', '+64%', '知乎'],
+  ['AI 生成内容的合规新规', '1.6w', '+95%', '头条'], ['Agent 成本到底多低', '5890', '+71%', '百度']
+];
+let favs = [];
+function renderHot() {
+  $('#hotList').innerHTML = HOTS.map((h, i) => `
+    <div class="hot-item">
+      <span class="rank ${i < 3 ? 'top' : ''}">${i + 1}</span>
+      <div class="b"><b>${esc(h[0])}</b>
+        <div class="mm"><span class="spark">${h[1]}</span><span>${h[2]}</span><span class="chip o" style="height:18px;font-size:10px">${esc(h[3])}</span><span>12:00 更新</span></div>
+      </div>
+      <div class="acts">
+        <button class="btn sm ghost star-btn ${favs.includes(h[0]) ? 'on' : ''}" data-fav="${esc(h[0])}">${svgIco('check', 12)} ${favs.includes(h[0]) ? '已收藏' : '收藏'}</button>
+        <button class="btn sm" data-make="${esc(h[0])}">做成内容</button>
+      </div>
+    </div>`).join('');
+  renderFav();
+}
+function renderFav() {
+  $('#favCount').textContent = favs.length; const n2 = $('#favN2'); if (n2) n2.textContent = favs.length;
+  $('#favList').innerHTML = favs.length ? favs.map(f => `<div class="list-row" data-make="${esc(f)}">
+      <span class="ic" style="background:var(--warn)">HOT</span>
+      <div style="flex:1;min-width:0"><b style="font-size:12.5px;font-weight:500">${esc(f)}</b><div class="mut2" style="font-size:11px">已存入选题库 · 来源可溯源</div></div>
+      <span class="chip o">待做</span>
+      <button class="btn sm" data-make="${esc(f)}">做成内容</button>
+    </div>`).join('') : `<div class="empty"><h4>还没有收藏</h4><p>在上面的热榜里点「收藏」，会带来源存进选题库。</p></div>`;
+}
+$('#hotList').addEventListener('click', e => {
+  const f = e.target.closest('[data-fav]');
+  if (f) { const t = f.dataset.fav; const i = favs.indexOf(t); i >= 0 ? favs.splice(i, 1) : favs.push(t); renderHot(); toast(i >= 0 ? '已取消收藏' : '已存入选题库 · 来源可溯源', 'ok'); return; }
+  const m = e.target.closest('[data-make]');
+  if (m) makeContent(m.dataset.make);
+});
+$('#favList').addEventListener('click', e => { const m = e.target.closest('[data-make]'); if (m) makeContent(m.dataset.make); });
+function makeContent(topic) {
+  go('chat');
+  ta.value = `帮我把「${topic}」写成小红书图文，要 3 张知识卡的量`;
+  autoGrow(ta);
+  $('#msgsIn').insertAdjacentHTML('afterbegin',
+    `<div class="msg u"><div class="who">Mr</div><div class="bd"><div class="nm">你 <span class="chip o mono" style="height:18px;font-size:10px">来自热点发现</span></div>
+     <div class="bubble">帮我把「${esc(topic)}」写成小红书图文，要 3 张知识卡的量</div></div></div>`);
+  toast('已预置 prompt，画像已注入，确认后发送', 'ok');
+}
+function reloadHot() {
+  $('#cacheChip').innerHTML = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="spin"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/></svg>拉取中…';
+  setTimeout(() => { $('#cacheChip').innerHTML = '<span class="live-dot" style="background:var(--accent)"></span>刚更新 · 2.1s'; toast('7 源已更新 · 280 条', 'ok'); }, 1500);
+}
+
+/* =====================================================================
+   选题看板
+   ===================================================================== */
+const KB = [
+  { t: 'AI 工具越用越笨', a: '从「对话失忆」切入，落点到画像', s: 86, src: '抖音热榜', st: 0, plat: ['xhs', 'dy'] },
+  { t: '我用 7 天戒掉计划系统', a: '亲测线，保留失败细节', s: 78, src: '手动', st: 0, plat: ['xhs'] },
+  { t: '3 个 Agent 砍掉一半内容流程', a: '先给结果，再讲怎么搭', s: 78, src: '手动', st: 1, plat: ['xhs', 'dy', 'gzh'] },
+  { t: '提示词已经没用了吗', a: '知乎同题有 2 篇，差异在实测', s: 64, src: '知乎热榜', st: 1, plat: ['gzh'] },
+  { t: '小红书封面配色公式', a: '视觉向，配 9 张图', s: 71, src: '手动', st: 2, plat: ['xhs'] },
+  { t: 'AI 味文案自查清单', a: '清单体，收藏导向', s: 69, src: '手动', st: 2, plat: ['xhs', 'gzh'] }
+];
+const ST_NAME = ['待做', '进行中', '已完成'];
+function renderKB() {
+  $('#kb').innerHTML = ST_NAME.map((n, i) => {
+    const list = KB.filter(x => x.st === i);
+    return `<div class="kb-col" data-col="${i}">
+      <div class="kb-h">${svgIco(['list', 'pen', 'check'][i], 14)}<span>${n}</span><span class="n">${list.length}</span></div>
+      <div class="kb-b">
+        ${list.map(x => `<div class="kb-card" draggable="true" data-t="${esc(x.t)}">
+          <b>${esc(x.t)}</b><div class="ang">${esc(x.a)}</div>
+          <div class="m"><span class="score ${x.s >= 75 ? 'hi' : x.s >= 60 ? 'mid' : 'lo'}">${x.s}</span>
+            <span class="src">${esc(x.src)}</span>
+            ${x.plat.map(p => `<span class="chip o" style="height:18px;font-size:10px">${({ xhs: '小红书', dy: '抖音', gzh: '公众号' })[p]}</span>`).join('')}</div>
+          <div class="go">
+            <button class="btn sm" data-kbmake="${esc(x.t)}">做成内容</button>
+            <button class="btn sm ghost" data-kbcal="${esc(x.t)}">排期</button>
+            <button class="btn sm ghost" data-act="toast" data-toast="演示：删除需二次确认">删除</button>
+          </div>
+        </div>`).join('') || `<div class="empty" style="padding:16px 8px"><p>拖卡片到这里</p></div>`}
+      </div></div>`;
+  }).join('');
+  $$('.kb-card').forEach(c => {
+    c.addEventListener('dragstart', () => c.classList.add('dragging'));
+    c.addEventListener('dragend', () => c.classList.remove('dragging'));
+  });
+  $$('.kb-col').forEach(col => {
+    col.addEventListener('dragover', e => { e.preventDefault(); $('.kb-b', col).classList.add('over'); });
+    col.addEventListener('dragleave', () => $('.kb-b', col).classList.remove('over'));
+    col.addEventListener('drop', e => {
+      e.preventDefault(); $('.kb-b', col).classList.remove('over');
+      const t = e.dataTransfer.getData('text/plain');
+      const item = KB.find(x => x.t === t); if (!item) return;
+      item.st = +col.dataset.col; renderKB();
+      toast(`「${t}」已移到「${ST_NAME[item.st]}」`, 'ok');
+    });
+  });
+}
+$('#kb').addEventListener('dragstart', e => { const c = e.target.closest('.kb-card'); if (c) e.dataTransfer.setData('text/plain', c.dataset.t); });
+$('#kb').addEventListener('click', e => {
+  const m = e.target.closest('[data-kbmake]'); if (m) return makeContent(m.dataset.kbmake);
+  const c = e.target.closest('[data-kbcal]');
+  if (c) { go('calendar'); toast(`「${c.dataset.kbcal}」已排到下周三 20:00`, 'ok'); }
+});
+
+/* =====================================================================
+   日历
+   ===================================================================== */
+const EVENTS = {
+  '2026-10-02': [['今天发什么 · 复盘昨天的数据', 'sent']],
+  '2026-10-03': [['公众号排版避坑', 'sent']],
+  '2026-10-05': [['国庆收假复盘', 'act']],
+  '2026-10-07': [['AI 工具越用越笨 · 卡1-3', 'ok'], ['抖音竖版（待字幕烧录）', 'draft']],
+  '2026-10-08': [['3 个 Agent 砍流程', 'ok'], ['国庆收假复盘', 'act']],
+  '2026-10-10': [['小红书封面配色公式', 'draft']],
+  '2026-10-12': [['AI 味自查清单', 'ok']],
+  '2026-10-14': [['10 月选题定档', 'act'], ['7 天戒掉计划系统', 'ok']],
+  '2026-10-16': [['提示词还有用吗', 'draft']],
+  '2026-10-20': [['双 11 预热', 'act']],
+  '2026-10-22': [['内容支柱复盘', 'ok']],
+  '2026-10-25': [['选题储备日', 'ok']]
+};
+function renderCal() {
+  const head = ['日', '一', '二', '三', '四', '五', '六'].map(d => `<div>${d}</div>`).join('');
+  let cells = '';
+  const start = new Date(2026, 8, 27); // 2026-09-27 周日
+  for (let i = 0; i < 42; i++) {
+    const d = new Date(start.getTime() + i * 864e5);
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    const out = d.getMonth() !== 9;
+    const today = key === '2026-10-02';
+    cells += `<div class="cal-d ${out ? 'out' : ''} ${today ? 'today' : ''}">
+      <span class="dn">${d.getDate()}</span>
+      ${(EVENTS[key] || []).map(([t, s]) => `<span class="ev ${s === 'ok' ? '' : s}" title="${esc(t)}">${esc(t)}</span>`).join('')}
+    </div>`;
+  }
+  $('#cal').innerHTML = `<div class="cal-h">${head}</div><div class="cal-g">${cells}</div>`;
+  $('#cal').addEventListener('click', e => {
+    const ev = e.target.closest('.ev'); if (!ev) return;
+    const act = ev.classList.contains('act');
+    openModal({
+      title: act ? '平台活动（只读）' : ev.textContent,
+      sub: act ? '平台活动为占位提醒，不可编辑或删除。' : '来自 2026-10 的排期',
+      body: act ? `<div class="help">双 11 预热 · 全平台 · 10/20 – 11/11。占位提醒会在开始前 3 天再次通知。</div>`
+        : `<div class="row" style="gap:8px;flex-wrap:wrap;margin-bottom:10px"><span class="chip a">待发</span><span class="chip o">小红书 · 抖音</span><span class="chip o mono">outputs/agent-workflow/</span></div>
+           <div class="help">状态流转：选题 → 草稿 → 待发 → 已发。发布后自动回填数据到复盘。</div>`,
+      ok: act ? '知道了' : '打开',
+      onOk: () => toast(act ? '已了解' : '已打开对应产出', 'ok')
+    });
+  });
+}
+
+/* =====================================================================
+   内容库
+   ===================================================================== */
+const TREE = [
+  { n: 'tool-dumb', c: 12, kids: [{ n: '成品', c: 7, on: true }, { n: '素材', c: 3 }, { n: '.session', c: 2, sys: 1 }] },
+  { n: 'agent-workflow', c: 9, kids: [{ n: '成品', c: 4 }, { n: '素材', c: 5 }] },
+  { n: 'xhs-cover', c: 5, kids: [{ n: '成品', c: 5 }] },
+  { n: 'oct-retro', c: 4, kids: [{ n: '成品', c: 2 }, { n: '素材', c: 2 }] }
+];
+const FILES = [
+  { n: 'card-01.png', t: 'image', s: '412 KB', sz: '1080×1440' },
+  { n: 'card-02.png', t: 'image', s: '388 KB', sz: '1080×1440' },
+  { n: 'card-03.png', t: 'image', s: '401 KB', sz: '1080×1440' },
+  { n: 'vertical-9x16.mp4', t: 'video', s: '18.2 MB', sz: '1080×1920 · 1:04' },
+  { n: 'vertical.srt', t: 'doc', s: '4.1 KB', sz: '62 行' },
+  { n: 'voice-01.mp3', t: 'audio', s: '1.1 MB', sz: '0:58' },
+  { n: 'post.html', t: 'doc', s: '22 KB', sz: '公众号排版' }
+];
+const TIC = { image: ['IMG', '#10b981'], video: ['VID', '#3b82f6'], audio: ['AUD', '#f59e0b'], doc: ['DOC', '#8b5cf6'] };
+function renderTree() {
+  $('#tree').innerHTML = TREE.map(p => `
+    <button class="n"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 4 4 4-4 4"/><path d="M12 20h8"/></svg>${esc(p.n)}<span class="c">${p.c}</span></button>
+    ${p.kids.map(k => `<button class="n sub ${k.on ? 'on' : ''}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2.5h8a2 2 0 0 1 2 2V18a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/></svg>${esc(k.n)}<span class="c">${k.c}</span>${k.sys ? '<span class="chip o" style="height:16px;font-size:9px;margin-left:4px">系统</span>' : ''}</button>`).join('')}
+  `).join('');
+}
+function renderFiles() {
+  $('#files').innerHTML = FILES.map((f, i) => {
+    const [lab, c] = TIC[f.t];
+    return `<div class="tile ${i === 0 ? 'sel' : ''}" data-file="${i}">
+      <div class="th">${f.t === 'image'
+        ? `<div style="width:38px;height:50px;border-radius:6px;background:linear-gradient(150deg,#e8f7f1,#c9ecdd);border:1px solid var(--accent-line);display:grid;place-items:center;color:var(--accent-ink)">${svgIco('image', 16)}</div>`
+        : `<div style="width:44px;height:44px;border-radius:10px;background:${c}1a;color:${c};display:grid;place-items:center">${svgIco(f.t === 'video' ? 'film' : f.t === 'audio' ? 'mic' : 'doc', 18)}</div>`}</div>
+      <div class="tb"><b>${esc(f.n)}</b><span>${esc(f.sz)} · ${f.s}</span></div>
+    </div>`;
+  }).join('');
+  $('#files').addEventListener('click', e => {
+    const t = e.target.closest('[data-file]'); if (!t) return;
+    $$('.tile').forEach(x => x.classList.remove('sel')); t.classList.add('sel');
+    const f = FILES[+t.dataset.file];
+    $('#prevPath').textContent = f.n;
+    $('#prev').innerHTML = f.t === 'image'
+      ? `<div style="text-align:center"><div class="mockcard" style="width:210px;padding:20px">
+          <div class="t" style="font-size:16px">为什么你的 AI<br>越用越笨</div>
+          <div class="l w85"></div><div class="l"></div><div class="l w70"></div>
+          <div style="height:6px;background:var(--accent);border-radius:4px;width:36px;margin:12px 0 4px"></div>
+          <div class="l w50"></div>
+          <div class="ft">@AI效率观察 · 第 1 / 3 张</div></div>
+         <div class="help" style="margin-top:10px">图片预览走 Range 请求，不整张预加载</div></div>`
+      : f.t === 'doc'
+        ? `<div style="width:100%;max-width:420px;background:#fff;border:1px solid var(--line);border-radius:10px;padding:16px 18px;box-shadow:var(--sh)">
+            <div style="font-size:15px;font-weight:700;margin-bottom:4px">我用 3 个 Agent 把内容流程砍掉一半</div>
+            <div class="mut2" style="font-size:11px;margin-bottom:10px">AI 效率观察 · 2026-10-02</div>
+            <div style="height:1px;background:var(--line-soft);margin-bottom:10px"></div>
+            <div style="font-size:12.5px;line-height:1.7;color:var(--ink-2)">上个月我同时跑 3 个 AI 工具写稿，结果产出越来越像同一篇文章。<br>问题不在工具，在于每次对话都从零开始…</div>
+            <div style="margin-top:10px;display:flex;gap:6px"><span class="chip o">内联样式</span><span class="chip o">sandbox</span></div>
+          </div>`
+        : `<div style="text-align:center"><div class="mono" style="font-size:11px;color:var(--muted)">${f.t === 'video' ? '▶' : '♪'} ${esc(f.n)}</div>
+           <div class="wave" style="display:flex;gap:2px;align-items:center;justify-content:center;height:44px;margin-top:8px">${Array.from({ length: 34 }, (_, i) => `<i style="display:block;width:3px;background:var(--accent);opacity:${.25 + (i % 5) / 8};border-radius:2px;height:${8 + (i * 7 % 30)}px"></i>`).join('')}</div>
+           <div class="help" style="margin-top:8px">${f.t === 'video' ? '视频按 Range 分段加载（206），支持拖动进度' : '音频波形可视化 · 点击播放'}</div></div>`;
+  });
+}
+function doDelete() {
+  openModal({
+    title: '确认删除？', sub: '删除后无法从内容库恢复（文件会进系统回收站）。', ok: '删除 1 个文件', danger: true,
+    body: `<div class="sysfile" style="background:var(--danger-soft);color:var(--danger-ink)">${svgIco('warn', 13)}<span>你正在删除 <b>card-01.png</b> 及其全部内容。</span></div>
+      <div class="field"><label>二次确认（只影响破坏性操作）</label>
+      <input class="inp mono" placeholder="输入文件名 card-01.png 以确认"></div>
+      <div class="help" style="margin-top:8px">系统文件（.session/、.index.json）不允许删除，需先在设置里解锁。</div>`
+  });
+}
+
+/* =====================================================================
+   发布
+   ===================================================================== */
+document.addEventListener('click', e => {
+  const p = e.target.closest('[data-plat]'); if (!p) return;
+  p.classList.toggle('on');
+  const on = $$('.plat.on').length;
+  $('.plat[data-plat="gzh"] .chip').textContent = p.dataset.plat === 'gzh' ? '已登录' : '未选择';
+  $('.plat[data-plat="gzh"] .chip').className = 'chip ' + (p.dataset.plat === 'gzh' ? 'a' : 'o');
+  $('[data-act="do-publish"]').innerHTML = `发布到 ${on} 个平台 ` + svgIco('check', 13);
+});
+function autofix() {
+  const el = $('#cnt-dy'), lim = $('#lim-dy');
+  el.textContent = '48 / 55'; el.classList.remove('over'); lim.classList.remove('over'); lim.style.width = '87%';
+  el.closest('.pv').querySelector('.bd').innerHTML = '内容流程砍一半，我只做了 3 件事｜30 天实测复盘\n\n#AI工作流 #内容创作 #效率工具';
+  toast('已裁剪到 48 字，硬门禁解除', 'ok');
+}
+function doPublish() {
+  const on = $$('.plat.on').map(p => p.dataset.plat);
+  const over = $('#cnt-dy').classList.contains('over');
+  if (over) { toast('抖音标题超字数，硬门禁未解除', 'warn'); return; }
+  openModal({
+    title: `确认发布到 ${on.length} 个平台？`,
+    sub: '这一步会真实发到已登录的账号，发出后无法撤回。', ok: '确认发布',
+    body: `<div class="stack" style="gap:8px">
+      ${on.map(k => `<div class="row" style="gap:9px"><span class="chip a">${({ xhs: '小红书', dy: '抖音', gzh: '公众号' })[k]}</span>
+        <span class="mut" style="font-size:12px">${k === 'dy' ? '视频 + 描述 · 需短信验证码' : k === 'xhs' ? '图文 3 张 · 封面已挂载' : '图文 · 需封面图'}</span>
+        <span class="chip o mono" style="margin-left:auto">${k === 'dy' ? '08:00 快照有效' : '有效'}</span></div>`).join('')}
+      <div class="hr" style="margin:4px 0"></div>
+      <label class="row" style="gap:8px;font-size:12.5px;cursor:pointer"><span class="plat" style="width:16px;height:16px;padding:0;border-radius:6px;display:grid;place-items:center;background:var(--accent);border-color:var(--accent);color:#fff"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round"><path d="M20 6 9 17l-5-5"/></svg></span>发布成功后自动回收数据到复盘</label>
+      <div class="help">抖音可能在发布时要求短信验证码，会弹窗等待 5 分钟。</div>
+    </div>`,
+    onOk: () => runPublish()
+  });
+}
+function runPublish() {
+  const rows = $$('#v-publish .status-row');
+  const last = rows[rows.length - 1];
+  last.innerHTML = `<div class="st run pulse">${svgIco('refresh', 11)}</div><div style="flex:1"><b>本次发布</b><div class="mut2" style="font-size:11.5px" id="runMsg">小红书 · 上传 3 张图…</div></div><span class="chip w" id="runChip">发布中</span>`;
+  const steps = [['小红书 · 上传 3 张图…', 'w'], ['小红书 · 已发布 ✓', 'ok'], ['抖音 · 提交视频…', 'w'], ['抖音 · 等待短信验证码…', 'w'], ['抖音 · 已发布 ✓', 'ok']];
+  let i = 0;
+  const t = setInterval(() => {
+    if (i >= steps.length) { clearInterval(t); toast('两个平台都已发布 · 数据回收已排入队列', 'ok'); return; }
+    $('#runMsg').textContent = steps[i][0];
+    const st = last.querySelector('.st'), chip = last.querySelector('#runChip');
+    st.className = 'st ' + (steps[i][1] === 'ok' ? 'ok' : 'run');
+    st.innerHTML = steps[i][1] === 'ok' ? svgIco('check', 11) : svgIco('refresh', 11);
+    chip.className = 'chip ' + (steps[i][1] === 'ok' ? 'a' : 'w');
+    chip.textContent = steps[i][1] === 'ok' ? '已发' : '发布中';
+    i++;
+  }, 900);
+}
+
+/* =====================================================================
+   账号登录
+   ===================================================================== */
+function doQR(platform) {
+  const p = platform || '该平台';
+  const cells = 21;
+  let rects = '';
+  for (let y = 0; y < cells; y++) for (let x = 0; x < cells; x++) {
+    if ((x * 7 + y * 13 + x * y) % 5 < 2) rects += `<rect x="${x}" y="${y}" width="1" height="1"/>`;
+  }
+  openModal({
+    title: `扫码登录 ${p}`, sub: '二维码 60 秒内有效，过期自动刷新。', ok: '我已扫码',
+    body: `<div class="row" style="gap:18px;flex-wrap:wrap;align-items:flex-start">
+      <div class="qr" id="qrBox"><svg viewBox="0 0 ${cells} ${cells}" fill="#1c1917" shape-rendering="crispEdges">${rects}</svg></div>
+      <div style="flex:1;min-width:160px">
+        <div class="row" style="gap:8px"><span class="st run pulse">${svgIco('refresh', 11)}</span><b style="font-size:13px" id="qrState">等待扫码…</b></div>
+        <div class="help" style="margin-top:8px">用 ${p} App 扫这个码。检测到扫码后会进入「确认登录」一步。</div>
+        <div class="hr"></div>
+        <div class="help">状态文案会一直更新：等待扫码 → 已扫码待确认 → 登录中 → 成功。<br>失败也会给明确原因，不只显示「失败」。</div>
+      </div></div>`
+  });
+  let step = 0;
+  const states = ['等待扫码…', '已扫码，请在手机上确认', '正在登录…', '登录成功'];
+  const t = setInterval(() => {
+    step++;
+    const el = $('#qrState'); if (!el) { clearInterval(t); return; }
+    if (step >= states.length) {
+      clearInterval(t);
+      el.textContent = '登录成功'; el.parentElement.querySelector('.st').className = 'st ok';
+      $('#qrState').closest('.card-b, .row').innerHTML = el.parentElement.outerHTML;
+      toast(p + ' 登录成功 · 已真校验通过', 'ok');
+      return;
+    }
+    el.textContent = states[step];
+    if (step === 2) el.parentElement.querySelector('.st').className = 'st run';
+  }, 1500);
+}
+
+/* =====================================================================
+   数据复盘 · 折线图
+   ===================================================================== */
+function lineChart() {
+  const data = [28,31,29,34,38,36,41,39,44,47,45,52,49,56,54,61,58,66,63,71,68,77,74,82,79,88,85,94,91,100];
+  const W = 520, H = 190, pad = { l: 34, r: 10, t: 12, b: 24 };
+  const iw = W - pad.l - pad.r, ih = H - pad.t - pad.b;
+  const max = 110, min = 20;
+  const x = i => pad.l + (i / (data.length - 1)) * iw;
+  const y = v => pad.t + ih - ((v - min) / (max - min)) * ih;
+  const path = data.map((v, i) => (i ? 'L' : 'M') + x(i).toFixed(1) + ' ' + y(v).toFixed(1)).join(' ');
+  const area = path + ` L${x(data.length - 1).toFixed(1)} ${pad.t + ih} L${pad.l} ${pad.t + ih} Z`;
+  const grid = [40, 60, 80, 100].map(v => `<line x1="${pad.l}" y1="${y(v)}" x2="${W - pad.r}" y2="${y(v)}" stroke="rgba(0,0,0,.05)"/>
+    <text x="${pad.l - 7}" y="${y(v) + 3.5}" text-anchor="end" font-size="9.5" fill="#a8a29e" font-family="JetBrains Mono, monospace">${v}</text>`).join('');
+  const dots = [0, 7, 14, 21, 29].map(i => `<circle cx="${x(i).toFixed(1)}" cy="${y(data[i]).toFixed(1)}" r="3" fill="#fff" stroke="#10b981" stroke-width="2"/>`).join('');
+  const XL = [['0', '9/12'], ['7', '9/19'], ['14', '9/26'], ['21', '10/3'], ['29', '10/11']];
+  const xl = XL.map(([i, lb]) => `<text x="${x(+i).toFixed(1)}" y="${H - 6}" text-anchor="middle" font-size="9.5" fill="#a8a29e" font-family="JetBrains Mono, monospace">${lb}</text>`).join('');
+  const hot = data.slice(21);
+  const hotPath = hot.map((v, i) => (i ? 'L' : 'M') + x(21 + i).toFixed(1) + ' ' + y(v).toFixed(1)).join(' ');
+  $('#lineChart').innerHTML = `
+    <defs><linearGradient id="g1" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#10b981" stop-opacity=".16"/><stop offset="100%" stop-color="#10b981" stop-opacity="0"/></linearGradient></defs>
+    ${grid}${xl}
+    <path d="${area}" fill="url(#g1)"/>
+    <path d="${path}" fill="none" stroke="#10b981" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="${hotPath}" fill="none" stroke="#0d9488" stroke-width="2.4" stroke-linecap="round" opacity=".9"/>
+    ${dots}
+    <rect x="${x(21).toFixed(1) - 4}" y="${y(110).toFixed(1)}" width="${(x(29) - x(21) + 8).toFixed(1)}" height="${(y(20) - y(110)).toFixed(1)}" fill="rgba(13,148,136,.05)" rx="4"/>
+    <text x="${(pad.l + 6)}" y="${pad.t + 10}" font-size="10" fill="#047857" font-weight="600">10/3 起：反常识 + 实测结构上线</text>`;
+}
+
+/* =====================================================================
+   画像
+   ===================================================================== */
+const DIMS = [
+  { k: 'identity', n: '定位', full: 100, v: `## 我是谁\n\n独立内容创作者，一个人运营 **3 个账号**，主力做「AI + 内容效率」。\n\n- 主阵地：小红书（图文为主）\n- 次阵地：抖音（竖版口播视频）\n- 长文沉淀：公众号\n\n不做测评号，不接广告，不带货。` },
+  { k: 'style', n: '风格', full: 92, v: `## 怎么说话\n\n- 短句为主，很少用长定语\n- 先给结论，再讲原因\n- 允许口语和「我实测过」这种亲身表述\n- emoji 每条最多 3 个\n- 不用「震惊 / 必看 / 绝了」这类极限词` },
+  { k: 'audience', n: '受众', full: 78, v: `## 我在写给谁\n\n- 22–32 岁的内容从业者 / 运营岗\n- 已经在用 AI，但觉得「产出没变好」\n- 痛点：不知道给谁写、写了记不住、发完看数据很难` },
+  { k: 'platforms', n: '平台', full: 100, v: `## 平台约束\n\n| 平台 | 内容形态 | 字数 | 备注 |\n|---|---|---|---|\n| 小红书 | 图文 3–9 张 | 1000 | 封面 3:4 |\n| 抖音 | 竖版口播 | 55 字标题 | 仅视频 |\n| 公众号 | 长文 | 20000 | 需封面图 |` },
+  { k: 'preferences', n: '偏好红线', full: 85, v: `## 我不要什么\n\n- 不写「AI 生成的」这种内容\n- 不做未实测的产品对比\n- 不追热点时蹭无关话题` },
+  { k: 'memory', n: '长期记忆', full: 66, v: `## 沉淀下来的结论\n\n- 「反常识 + 亲手实测」组合的播放中位数是均值 3.8 倍\n- 抖音竖版完播 41%，横转竖只有 22%\n- 清单体收藏高但点赞低，适合涨粉不适合破圈` }
+];
+let dimIdx = 0;
+function renderDim() {
+  $('#dimNav').innerHTML = DIMS.map((d, i) => `<button class="${i === dimIdx ? 'on' : ''}" data-dim="${i}">
+    ${svgIco(['target', 'pen', 'users', 'cog', 'shield', 'bulb'][i], 15)}<span>${d.n}</span><span class="n">${d.full}%</span>
+    <div class="filled" style="width:100%"><i style="width:${d.full}%"></i></div></button>`).join('');
+  const d = DIMS[dimIdx];
+  $('#dimTitle').textContent = d.n + ' · ' + d.k;
+  $('#dimEdit').value = d.v;
+  $('#dimView').innerHTML = mdRender(d.v);
+  $('#dimCount').textContent = d.v.replace(/\s/g, '').length + ' 字';
+  $('#dimHint').textContent = d.k === 'memory' ? '归因结论自动沉淀到这里，也可以在对话里说「记住这个偏好」' : '建议 100–300 字，写得越具体，产出越稳';
+}
+$('#dimNav').addEventListener('click', e => { const b = e.target.closest('[data-dim]'); if (b) { dimIdx = +b.dataset.dim; renderDim(); } });
+$('#dimEdit').addEventListener('input', e => { $('#dimView').innerHTML = mdRender(e.target.value); $('#dimCount').textContent = e.target.value.replace(/\s/g, '').length + ' 字'; });
+const REDLINES = ['不用极限词（震惊/必看/绝了）', '不做未实测的产品对比', '不写「AI 生成的」这种自曝内容', 'emoji 每条 ≤ 3 个'];
+$('#redlines').innerHTML = REDLINES.map(r => `<div class="redline"><span>${esc(r)}</span><span class="mut2" style="font-size:11px">软提醒 · 不阻断</span><span class="x" style="cursor:pointer;color:var(--muted)">✕</span></div>`).join('');
+const MEMS = [
+  ['反常识 + 亲手实测组合，中位播放是均值 3.8 倍', '归因 · 3 天前'],
+  ['抖音竖版完播 41% > 横转竖 22%，别再横转竖', '归因 · 5 天前'],
+  ['清单体适合涨粉，不适合破圈', '手动 · 上周'],
+  ['封面用「一个问题 + 一个反常识答案」点击率高', '归因 · 上周']
+];
+$('#memories').innerHTML = MEMS.map((m, i) => `<div class="mem-item"><div class="q">${i + 1}</div><div style="flex:1"><b>${esc(m[0])}</b><span>${esc(m[1])} · 下一轮对话自动注入</span></div></div>`).join('');
+function updateMemCount() { $('#memCount').textContent = $('#memories').children.length + ' 条'; }
+
+/* =====================================================================
+   设置
+   ===================================================================== */
+const CHANS = [
+  { n: '对话', s: 'gpt-oss-120b · SSE', k: 'LLM_API_KEY', v: 'sk-live-••••••••3f7a', ok: true },
+  { n: '转写', s: 'faster-whisper · 本地', k: '—', v: '本地模型，无需密钥', ok: true, local: 1 },
+  { n: '配音', s: '云端 TTS · edge 兜底', k: 'TTS_API_KEY', v: '未配置', ok: false },
+  { n: '生图', s: 'MiniMax Image', k: 'MINIMAX_API_KEY', v: '未配置', ok: false },
+  { n: '视频', s: 'MiniMax H3.0', k: 'MINIMAX_API_KEY', v: '未配置', ok: false },
+  { n: '音乐', s: '—', k: 'MUSIC_API_KEY', v: '未配置', ok: false, coming: 1 }
+];
+$('#chans').innerHTML = CHANS.map(c => `<div class="chan">
+  <div class="nm"><b>${c.n}</b><span>${esc(c.s)}</span></div>
+  ${c.local ? `<span class="chip a" style="flex:1">${svgIco('check', 11)} 本地就绪</span>` :
+    `<div class="key-in" style="flex:1"><input class="inp mono" type="password" placeholder="${c.ok ? c.v : '未配置 · 填入启用'}">
+      <button class="eye" data-act="toggle-key">${svgIco('key', 13)}</button></div>`}
+  <button class="btn sm" data-act="probe" data-n="${esc(c.n)}" ${c.coming ? 'disabled title="接入中"' : ''}>自检</button>
+  <span class="chip ${c.ok ? 'a' : 'w'}" style="width:56px;justify-content:center">${c.coming ? '接入中' : c.ok ? '已连通' : '缺密钥'}</span>
+</div>`).join('');
+document.addEventListener('click', e => {
+  const b = e.target.closest('[data-act="probe"]'); if (!b) return;
+  const chip = b.parentElement.querySelector('.chip');
+  chip.className = 'chip o'; chip.textContent = '检测中';
+  let n = 0; const t = setInterval(() => { n++; chip.textContent = '重试 ' + n + '/3'; if (n >= 3) { clearInterval(t); chip.className = 'chip d'; chip.textContent = '连接失败'; toast(b.dataset.n + ' 通道自检失败：连接超时', 'warn'); } }, 700);
+  setTimeout(() => { if (n < 3) { clearInterval(t); chip.className = 'chip a'; chip.textContent = '已连通'; toast(b.dataset.n + ' 通道连通正常（真实探测，非标记文件）', 'ok'); } }, 1200);
+});
+const DOCS = [
+  ['Python ≥ 3.10', '3.12.4', 'ok'], ['Node.js ≥ 22', '26.10.0', 'ok'], ['FFmpeg', '9.0.2', 'ok'],
+  ['Chromium', 'Chrome 141', 'ok'], ['磁盘可写空间', '72 GB', 'ok'], ['输出目录', '~/Atelier/outputs', 'ok'],
+  ['对话通道连通', 'gpt-oss-120b', 'ok'], ['转写模型', 'faster-whisper base', 'ok'],
+  ['CORS 收紧', '仅本地来源', 'ok'], ['跨站写请求拦截', '已启用', 'ok'],
+  ['出站密钥扫描', 'BLOCK fail-closed', 'ok'], ['凭证加密存储', 'keychain', 'ok'],
+  ['会话落盘', '.session/', 'ok'], ['git 版本', '2.39.5', 'ok'], ['端口探测', '7317 可用', 'ok'],
+  ['浏览器会话复用', '缓存命中', 'ok'], ['TTS 通道', '未配置', 'warn']
+];
+$('#docList').innerHTML = DOCS.map(([a, b, s]) => `<div class="doc-item">
+  <div class="s ${s}">${s === 'ok' ? svgIco('check', 10) : svgIco('warn', 10)}</div>${esc(a)}<span class="sp">${esc(b)}</span></div>`).join('');
+function runDoctor() {
+  const chip = $('#docChip'); chip.className = 'chip o'; chip.textContent = '检测中…';
+  const prog = $('#docProg'); prog.style.width = '0%';
+  const rows = $$('#docList .doc-item');
+  rows.forEach(r => { r.style.opacity = '.4'; });
+  let i = 0;
+  const t = setInterval(() => {
+    if (i < rows.length) { rows[i].style.opacity = '1'; prog.style.width = Math.round((i + 1) / rows.length * 94) + '%'; i++; }
+    else {
+      clearInterval(t);
+      chip.className = 'chip a'; chip.textContent = '16 / 17 通过';
+      toast('体检完成：1 项未配置（TTS 通道），其余正常', 'ok');
+    }
+  }, 110);
+}
+
+/* =====================================================================
+   工作台热榜
+   ===================================================================== */
+$('#feed').innerHTML = HOTS.slice(0, 6).map((h, i) => `<div class="feed-item" data-make="${esc(h[0])}">
+  <span class="feed-rank ${i < 3 ? 'hot' : ''}">${i + 1}</span>
+  <div class="feed-b"><b>${esc(h[0])}</b>
+    <div class="feed-m"><span class="spark">${h[1]}</span><span>${h[2]}</span><span class="chip o" style="height:17px;font-size:10px">${esc(h[3])}</span></div>
+  </div>
+  <button class="btn sm ghost" data-make="${esc(h[0])}" style="opacity:0">做成内容</button>
+</div>`).join('');
+$('#feed').addEventListener('mouseover', e => { const b = e.target.closest('.feed-item .btn'); if (b) b.style.opacity = '1'; });
+$('#feed').addEventListener('mouseout', e => { const b = e.target.closest('.feed-item .btn'); if (b) b.style.opacity = '0'; });
+
+/* 问候 */
+(() => {
+  const h = new Date().getHours();
+  $('#greet').textContent = (h < 6 ? '深夜好' : h < 11 ? '早上好' : h < 14 ? '中午好' : h < 18 ? '下午好' : '晚上好') + '，Mr Yu';
+})();
+
+/* init */
+go('workbench');
+renderHot(); renderKB(); renderCal(); renderTree(); renderFiles(); renderDim(); updateMemCount(); lineChart();
+</script>
+</body>
+</html>

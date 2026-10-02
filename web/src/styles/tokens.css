@@ -1,0 +1,132 @@
+/* =============================================================================
+   Atelier · 设计令牌（唯一色值来源）
+   依据：design/UI-SPEC.md §2 + design/prototype-v1.html :root
+   铁律：components / layout / features 三个目录里不允许出现任何字面色值，
+        也不允许写 rgba()/hex；一切颜色与阴影必须引用本文件的变量。
+   ========================================================================== */
+
+:root {
+  /* ---------- 2.1 背景 / 面 ---------- */
+  --bg: #fafaf9; /* 页面底色（暖白，非纯白） */
+  --surface: #ffffff; /* 卡片 */
+  --surface-2: #f6f5f3; /* 看板列、输入框底 */
+  --surface-3: #efeeeb; /* 进度槽、骨架 */
+  --surface-glass: rgba(255, 255, 255, 0.82); /* 顶栏 / 输入区半透明底 */
+  --surface-glass-90: rgba(255, 255, 255, 0.9);
+  --white: #ffffff;
+
+  /* ---------- 描边 ---------- */
+  --line: #e7e5e3; /* 卡片边 */
+  --line-soft: #f0efed; /* 卡内分隔线 */
+  --line-strong: #d6d2cd; /* hover 边框 */
+
+  /* ---------- 文字 ---------- */
+  --ink: #1c1917; /* 标题 */
+  --ink-2: #57534e; /* 正文 */
+  --ink-3: #78716c; /* 次要说明 */
+  --muted: #a8a29e; /* 占位符 / 极次要 */
+  --on-dark: #ffffff; /* 深色底上的文字（chip.on / toast / 停止生成） */
+
+  /* ---------- 主色（唯一强调色） ---------- */
+  --accent: #10b981;
+  --accent-ink: #047857;
+  --accent-soft: rgba(16, 185, 129, 0.1);
+  --accent-line: rgba(16, 185, 129, 0.28);
+  --accent-deep: #0d9488; /* 渐变深端 / 强调段 */
+  --accent-hover: #0ea371; /* 主按钮 hover */
+  --accent-16: rgba(16, 185, 129, 0.16); /* 导航计数底 */
+  --accent-20: rgba(16, 185, 129, 0.2); /* 路径 chip hover 底 */
+  --accent-05: rgba(16, 185, 129, 0.05);
+  --accent-02: rgba(16, 185, 129, 0.02);
+
+  /* ---------- 语义色（只做状态标识，不做装饰） ---------- */
+  --warn: #f59e0b;
+  --warn-ink: #b45309;
+  --warn-soft: rgba(245, 158, 11, 0.12);
+  --warn-shadow: rgba(245, 158, 11, 0.4);
+
+  --danger: #f43f5e;
+  --danger-ink: #be123c;
+  --danger-soft: rgba(244, 63, 94, 0.09);
+  --danger-line: rgba(244, 63, 94, 0.3);
+
+  --info: #3b82f6;
+  --info-ink: #1d4ed8;
+  --info-soft: rgba(59, 130, 246, 0.09);
+
+  /* ---------- 2.2 字体 ---------- */
+  --sans: 'Outfit', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+  --mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  /* ---------- 2.3 圆角 / 阴影 ---------- */
+  --r: 14px; /* 卡片 */
+  --r-sm: 10px; /* 控件 */
+  --r-xs: 7px; /* 标签 / 输入 */
+  --r-pill: 20px; /* chip */
+
+  --sh: 0 1px 2px rgba(0, 0, 0, 0.04), 0 4px 14px -4px rgba(0, 0, 0, 0.06); /* 基础 */
+  --sh-hover: 0 6px 20px -6px rgba(0, 0, 0, 0.16); /* 悬浮 */
+  --sh-lg: 0 8px 32px -8px rgba(0, 0, 0, 0.14); /* 浮层 */
+  --sh-pri: 0 1px 6px rgba(16, 185, 129, 0.25); /* 主按钮 */
+  --sh-accent-hover: 0 6px 20px -6px rgba(16, 185, 129, 0.2); /* 能力卡 hover */
+  --sh-brand: 0 2px 8px rgba(16, 185, 129, 0.3);
+  --sh-tab: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --sh-card-soft: 0 1px 2px rgba(0, 0, 0, 0.03);
+
+  /* ---------- 遮罩 / 滚动条 ---------- */
+  --scrim: rgba(28, 25, 23, 0.32);
+  --sb-thumb: #dedbd7;
+  --sb-thumb-hover: #c9c5c0;
+  --grid-line: rgba(0, 0, 0, 0.05);
+  --hover-wash: rgba(0, 0, 0, 0.05);
+
+  /* ---------- 渐变 / 头像 ---------- */
+  --grad-brand: linear-gradient(140deg, #10b981, #0d9488);
+  --grad-avatar: linear-gradient(140deg, #6366f1, #0ea5e9);
+  --grad-avatar-g: linear-gradient(140deg, #10b981, #0d9488);
+  --grad-avatar-w: linear-gradient(140deg, #f59e0b, #f43f5e);
+  --grad-hero: linear-gradient(120deg, #ffffff, #f4fbf8);
+  --grad-qcard: linear-gradient(180deg, rgba(16, 185, 129, 0.05), rgba(16, 185, 129, 0.02));
+  --grad-img-tile: linear-gradient(150deg, #e8f7f1, #c9ecdd);
+  --grad-fade: linear-gradient(transparent, var(--surface));
+  --stripe-warn: repeating-linear-gradient(
+    45deg,
+    rgba(120, 113, 108, 0.08) 0 5px,
+    transparent 5px 10px
+  );
+  --stripe-legend: repeating-linear-gradient(
+    45deg,
+    rgba(120, 113, 108, 0.14) 0 3px,
+    transparent 3px 6px
+  );
+  --stripe-legend-border: rgba(120, 113, 108, 0.3);
+
+  /* 素材类型色（内容库 / 附件角标） */
+  --kind-img: #10b981;
+  --kind-vid: #3b82f6;
+  --kind-aud: #f59e0b;
+  --kind-doc: #8b5cf6;
+
+  /* Toast 底色 */
+  --toast-bg: #1c1917;
+  --toast-ok-bg: #064e3b;
+  --toast-warn-bg: #78350f;
+
+  /* ---------- 字号阶梯 ---------- */
+  --fs-h1: 21px; /* 页面标题 */
+  --fs-h2: 14px; /* 区块标题 */
+  --fs-lbl: 11px; /* 小标签（大写） */
+  --fs-body: 14px; /* 正文 */
+  --fs-sub: 12.5px; /* 次要说明 */
+  --fs-help: 11.5px; /* 辅助 */
+  --fs-metric: 23px; /* 数字读数 */
+
+  /* ---------- 布局尺寸 ---------- */
+  --sidebar-w: 236px;
+  --sidebar-w-mini: 60px;
+  --topbar-h: 56px;
+  --chat-side-w: 216px;
+  --view-max: 1180px;
+  --drawer-w: 560px;
+  --modal-w: 520px;
+}
