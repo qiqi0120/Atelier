@@ -121,9 +121,11 @@ def main() -> int:
           all(i.get("trigger") and i.get("maturity") in ("v0", "v1", "v2", "v3") for i in items))
     _, sks = call("GET", "/api/skills")
     sk_list = sks if isinstance(sks, list) else sks.get("skills", [])
-    check("技能库返回 12 个技能", len(sk_list) == 12, f"{len(sk_list)} 个")
+    # M3（SPEC-13）后 12 + 37 = 49 个技能；新增一批时同步改这里
+    check("技能库返回 49 个技能", len(sk_list) == 49, f"{len(sk_list)} 个")
     need = [s for s in sk_list if s.get("required_keys")]
-    check("缺密钥的技能标 v2/v3（供 UI 禁用）", all(s["maturity"] in ("v2", "v3") for s in need),
+    # 密钥前置技能：M1 的付费 AI 能力是 v2；M3 的 tts/asr/multi-voice 是 v1（SPEC-13 §1.3）
+    check("缺密钥的技能标 v1+（供 UI 禁用）", all(s["maturity"] in ("v1", "v2", "v3") for s in need),
           f"{[s['id'] for s in need]}")
 
     # ── 出口 4：门禁不可绕过 ──────────────────────────────────────

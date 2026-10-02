@@ -120,7 +120,8 @@ export type SkillParam = {
   default: string
 }
 
-export type SkillMeta = {
+/** GET /api/skills 的 brief：技能元数据，**不含 body_markdown**（SPEC-04 §5） */
+export type SkillBrief = {
   id: string
   name: string
   layer: SkillLayer
@@ -131,17 +132,113 @@ export type SkillMeta = {
   cost: string
   required_keys: string[]
   params: SkillParam[]
-  body_markdown: string
+  outputs: string[]
+  paid: boolean
   script: string | null
+  /** 运行环境缺哪些密钥（F-C10 据此禁用运行） */
+  missing_keys: string[]
+  runnable: boolean
 }
 
-export type Capability = {
+/** GET /api/skills/{id} 详情 = brief + SKILL.md 全文 + 缺钥禁用原因 */
+export type SkillDetail = SkillBrief & {
+  body_markdown: string
+  /** null = 可运行；否则为禁用原因文案 */
+  block_reason: string | null
+}
+
+export type SkillListResponse = {
+  skills: SkillBrief[]
+  count: number
+  layers: SkillLayer[]
+}
+
+export type SkillArtifact = {
+  path: string
+  name: string
+  kind: string
+  size?: number
+}
+
+export type CostLine = { label: string; qty: number; rate: number; amount: number }
+
+export type CostEstimate = {
+  currency: string
+  amount: number
+  breakdown: CostLine[]
+  note?: string
+}
+
+/** GET /api/skills/runs/{run_id} 与运行历史行（skills/store.py 同一口径） */
+export type SkillRun = {
+  run_id: string
+  skill_id: string
+  status: 'running' | 'done' | 'failed' | 'cost_pending' | string
+  project?: string
+  profile_id?: string | null
+  params?: Record<string, unknown>
+  result_markdown: string
+  artifacts: SkillArtifact[]
+  gate_report?: GateReport | null
+  cost_estimate?: CostEstimate | null
+  cost_actual?: number
+  error?: { code: string; message: string; hint?: string | null } | null
+  missing_keys?: string[]
+  duration?: number
+  created_at?: string
+  updated_at?: string
+}
+
+/** POST /api/skills/{id}/run 的三种返回：running / cost_pending / done|failed（wait） */
+export type SkillRunResponse = SkillRun & {
+  requires_confirm?: boolean
+  paid?: boolean
+  stream_url?: string
+}
+
+/** GET /api/capabilities：按 group 分组的能力地图（capabilities.toml） */
+export type CapabilityItem = {
   id: string
   group: string
   name: string
   trigger: string
   maturity: Maturity
   skill_id: string | null
+  outputs: string[]
+  paid: boolean
+  required_keys: string[]
+  has_script: boolean
+  /** capabilities.toml 里的图标名（web 侧映射到 lucide） */
+  icon?: string | null
+}
+
+export type CapabilityGroup = {
+  name: string
+  desc: string
+  items: CapabilityItem[]
+}
+
+export type CapabilitiesResponse = {
+  groups: CapabilityGroup[]
+  dead_links: unknown[]
+  total: number
+}
+
+/* ---------- 密钥（PRD F-C9 / F-I4：只写不回传，只给掩码） ---------- */
+
+export type KeyInfo = {
+  key_name: string
+  masked: string
+  source: 'env' | 'keychain' | 'file' | string
+  platform: string | null
+  updated_at: number | null
+}
+
+export type KeysResponse = {
+  keys: KeyInfo[]
+  count: number
+  required_by_skills: string[]
+  backend: string
 }
 
 /* ---------- 发布 ---------- */
