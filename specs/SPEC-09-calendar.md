@@ -19,7 +19,7 @@
 | D4 | 内置节点只含**公历确定日 + 可计算的**母亲节/父亲节（按年算出具体日期）；农历节日（春节/中秋/端午/清明/七夕/年货节）不内置、**不引农历依赖**，用户手工添加。导入是**显式动作**（POST /calendar/seed），按 `(title, date)` 幂等补种；删除内置条目后重新导入会带回——语义就是「重新导入」 |
 | D5 | 「提前 N 天提醒」是**查询式**，不做后台推送/通知/定时器：`GET /calendar/upcoming` 由前端拉取，每条事件自带 `remind_days`（0..30，默认 3） |
 | D6 | 平台活动**手工录入**（无自动数据源）。UI-SPEC 规则 15 的斜纹虚线样式照做；「只读」语义落为「不可拖拽成内容」（本批日历本就无拖拽），可正常编辑/删除 |
-| D7 | 日期一律 `YYYY-MM-DD` ISO 文本、本地时区；服务层函数带 `today` 形参（默认 `date.today()`）保证可测 |
+| D7 | 日期一律 `YYYY-MM-DD` 零填充 ISO 文本；「今天」固定走**北京时间**（`calendar/service.local_today()`，节假日/大促语义本就以中国日历为准，也消除机器时区差异）；服务层函数带 `today` 形参保证可测 |
 
 ## 1. 数据契约（schema v4）
 
@@ -82,9 +82,9 @@ CREATE TABLE IF NOT EXISTS calendar_events (
 ## 6. 前端（`web/src/features/calendar/`，占位页转正）
 
 - 单页三区：顶部工具条（**生成近 14 天建议 = primary**（UI-SPEC §6 /calendar 主行动）· 新建事件 · 导入本年节点 · 月份切换 ‹ ›）+ 月视图网格 + 近期节点条
-- 月格沿用 `global.css` 已备好的 `cal-*` 样式，零新依赖。格内条目三类：事件条目带 kind 前缀标签（节/促/业/活，**文字标签区分，不引入新颜色**）；`kind=platform` 用斜纹虚线样式（新增中性灰 `repeating-linear-gradient` 一条 CSS）；选题条目 accent 边框，点击跳 `/topics`
-- 近期节点条：`remind_active` 的条目加粗 + 「还有 N 天 / 今天 / 进行中」徽标（accent 色，提醒不是错误，不用语义红）
-- 弹层：`EventDialog`（新建/编辑/删除三合一，删除走 `ConfirmDialog`）；`SuggestDialog`（画像 Select 可空 + 天数默认 14；结果列表展示 title/date/event，附「去选题库」链接）；门禁 BLOCK 的 `gate_items` 展示沿用 topics 域模式（`describe.ts` 可按需上移 `features/shared/`，属实现自由）
+- 月格沿用 `global.css` 原型已备好的 `cal-*` / `ev` / `ev.act` 样式，**零新增 CSS**。格内条目两类：选题条目（`.ev` accent 边框 = 「内容条目」，点击跳 `/topics`）；日历节点（`.ev.act` 斜纹虚线 = 「非内容条目」统一只读视觉，D6，点击进编辑弹层），kind 用**文字前缀**（节/促/业/活）区分，不引入新颜色
+- 近期节点条：`remind_active` 的条目用 accent Chip，文案区分「还有 N 天 / 今天 / 进行中」
+- 弹层：`EventDialog`（新建/编辑/删除三合一，删除走 `ConfirmDialog`）；`SuggestDialog`（画像跟随当前激活画像——与拆解/矩阵弹层一致 + 天数默认 14；结果列表展示 title/date/event）；门禁 BLOCK 的 `gate_items` 展示走 `lib/gates.describeError`（describe.ts 已从 topics 域上移 `lib/gates.ts`——门禁报告是 API 契约，归 lib）
 - `api.ts`/`types.ts` 域内自带，走 `lib/api.ts` 的 `ApiError` 自动 toast；`handled: true` 仅用于门禁 BLOCK 弹层内展示改法
 - topics 看板卡片副行：`due_date` 非空时显示 `MM-DD` chip（TopicsPage 一处小改）
 

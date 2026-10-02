@@ -1,7 +1,15 @@
-/** SPEC-08 · 选题域类型（与后端 api/topics.py 的响应形状一一对应）。 */
+/** SPEC-08 · 选题域类型（与后端 api/topics.py 的响应形状一一对应）。
+ *
+ * 门禁报告形状是 API 契约的一部分，归 lib/gates.ts（SPEC-09 起，日历域同用）。
+ */
+
+import type { GateReportT } from '@/lib/gates'
+
+export type { GateItemT, GateReportT } from '@/lib/gates'
 
 export type TopicStatus = 'todo' | 'doing' | 'done'
-export type TopicSource = 'manual' | 'decode' | 'matrix'
+/** calendar 由 SPEC-09（日历建议）落池；hot 留给 M2-3 */
+export type TopicSource = 'manual' | 'decode' | 'matrix' | 'calendar'
 export type Verdict = 'do' | 'pivot' | 'dont'
 
 export type Topic = {
@@ -13,6 +21,8 @@ export type Topic = {
   source_ref: string
   status: TopicStatus
   decode: string
+  /** 建议发布日期（YYYY-MM-DD），空串 = 未排期（SPEC-09） */
+  due_date: string
   created_at: string
   updated_at: string
 }
@@ -35,23 +45,6 @@ export type TopicScore = {
   verdict: Verdict
   reason: string
   created_at: string
-}
-
-export type GateItemT = {
-  gate: string
-  label: string
-  severity: 'block' | 'warn'
-  passed: boolean
-  actual: number | string | null
-  limit: number | string | null
-  message: string
-  fix_hint: string | null
-}
-
-export type GateReportT = {
-  blocked: boolean
-  items: GateItemT[]
-  summary: { total: number; failed: number; blocked_items: number; warn_items: number }
 }
 
 export type DecodeResult = {
@@ -92,6 +85,7 @@ export const SOURCE_LABEL: Record<TopicSource, string> = {
   manual: '手动',
   decode: '拆解',
   matrix: '矩阵',
+  calendar: '日历',
 }
 
 export const VERDICT_META: Record<Verdict, { label: string; hint: string }> = {

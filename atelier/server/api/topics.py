@@ -42,12 +42,14 @@ class CreateTopicBody(BaseModel):
     source: str = "manual"
     source_ref: str | None = None
     decode: str | None = None
+    due_date: str | None = None
 
 
 class PatchTopicBody(BaseModel):
     title: str | None = None
     angle: str | None = None
     status: str | None = None
+    due_date: str | None = None
 
 
 class DecodeBody(BaseModel):
@@ -98,6 +100,7 @@ def post_topic(body: CreateTopicBody) -> dict[str, Any]:
         source=body.source,
         source_ref=body.source_ref,
         decode=body.decode,
+        due_date=body.due_date,
     )
 
 
@@ -106,7 +109,7 @@ def get_topic(topic_id: str) -> dict[str, Any]:
     return service.topic_with_score(topic_id)
 
 
-@router.patch("/topics/{topic_id}", summary="改选题（title / angle / status）")
+@router.patch("/topics/{topic_id}", summary="改选题（title / angle / status / due_date）")
 def patch_topic(topic_id: str, body: PatchTopicBody) -> dict[str, Any]:
     return service.update_topic(topic_id, body.model_dump())
 

@@ -50,6 +50,7 @@ function topic(over: Partial<Topic> = {}): Topic {
     source_ref: '通勤穿搭×图文',
     status: 'todo',
     decode: '',
+    due_date: '',
     created_at: '2026-10-02T10:00:00+00:00',
     updated_at: '2026-10-02T10:00:00+00:00',
     ...over,

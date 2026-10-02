@@ -6,7 +6,7 @@ import remarkGfm from 'remark-gfm'
 import { Button, Chip, Field, Input, Modal, Select, Textarea, toast } from '@/components'
 import { useAtelier } from '@/lib/store'
 import { topicsApi } from './api'
-import { describeError } from './describe'
+import { describeError } from '@/lib/gates'
 import type { DecodeResult } from './types'
 
 const PLATFORM_OPTIONS = [

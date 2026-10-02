@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { Button, Chip, Modal, toast } from '@/components'
 import { useAtelier } from '@/lib/store'
 import { topicsApi } from './api'
-import { describeError } from './describe'
+import { describeError } from '@/lib/gates'
 import { DIM_ROWS, VERDICT_META, type Topic, type TopicScore } from './types'
 
 export type ScoreDialogProps = {

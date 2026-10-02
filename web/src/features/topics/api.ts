@@ -29,9 +29,10 @@ export type CreateTopicBody = {
   title: string
   angle?: string
   profile_id?: string
-  source?: 'manual' | 'decode' | 'matrix'
+  source?: 'manual' | 'decode' | 'matrix' | 'calendar'
   source_ref?: string
   decode?: string
+  due_date?: string
 }
 
 export type DecodeBody = {
@@ -49,7 +50,9 @@ export const topicsApi = {
   create: (body: CreateTopicBody) => api.post<Topic>('/topics', body, { headers: JSON_HEADERS }),
 
   detail: (id: string) =>
-    api.get<{ topic: Topic; score: Omit<TopicScore, 'title'> | null }>(`/topics/${id}`),  update: (id: string, changes: { title?: string; angle?: string; status?: TopicStatus }) =>
+    api.get<{ topic: Topic; score: Omit<TopicScore, 'title'> | null }>(`/topics/${id}`),
+
+  update: (id: string, changes: { title?: string; angle?: string; status?: TopicStatus; due_date?: string }) =>
     api.patch<Topic>(`/topics/${id}`, changes, { headers: JSON_HEADERS }),
 
   remove: (id: string) =>

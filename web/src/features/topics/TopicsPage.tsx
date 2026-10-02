@@ -167,6 +167,11 @@ function TopicCard(props: {
         <Chip tone={topic.source === 'decode' ? 'info' : topic.source === 'matrix' ? 'neutral' : 'outline'}>
           {SOURCE_LABEL[topic.source]}
         </Chip>
+        {topic.due_date ? (
+          <Chip tone="outline" title="建议发布日期">
+            {topic.due_date.slice(5)}
+          </Chip>
+        ) : null}
         <div className="topic-acts">
           <button type="button" className="iconbtn" title="评分" aria-label={`评分：${topic.title}`} onClick={props.onScore}>
             <ListChecks size={15} />

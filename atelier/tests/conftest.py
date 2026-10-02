@@ -8,7 +8,7 @@
 from __future__ import annotations
 
 import os
-from collections.abc import Iterator
+from collections.abc import AsyncIterator, Iterator
 from pathlib import Path
 
 import pytest
@@ -16,6 +16,50 @@ import pytest
 from atelier.server import paths
 from atelier.server.config import reload_settings
 from atelier.server.core import db
+from atelier.server.harness import registry as harness_registry
+from atelier.server.harness.base import EventType, HealthReport, TurnEvent, TurnRequest
+
+
+class ScriptedHarness:
+    """按队列吐文本的假 harness（M2 起供 topics / calendar 等域共用）。
+
+    记录 TurnRequest，供断言画像注入与 prompt 拼装。真实模型不可测，
+    mock 的写死文本又过不了结构化约定，所以用可控输出的假 harness
+    断言「域服务对 harness 的用法」与「解析/门禁/落库」。
+    """
+
+    name = "scripted"
+
+    def __init__(self, outputs: list[str] | None = None) -> None:
+        self.outputs: list[str] = list(outputs or [])
+        self.requests: list[TurnRequest] = []
+
+    async def stream(self, req: TurnRequest) -> AsyncIterator[TurnEvent]:
+        self.requests.append(req)
+        text = self.outputs.pop(0) if self.outputs else ""
+        yield TurnEvent(EventType.TEXT_DELTA, req.turn_id, {"text": text})
+        yield TurnEvent(EventType.DONE, req.turn_id, {"text": text, "provider": self.name})
+
+    async def interrupt(self, turn_id: str) -> None:  # pragma: no cover - 本批用不到
+        return None
+
+    async def resume(self, turn_id: str) -> list[TurnEvent]:  # pragma: no cover
+        return []
+
+    async def health(self) -> HealthReport:
+        return HealthReport(name=self.name, ok=True)
+
+    async def aclose(self) -> None:
+        return None
+
+
+@pytest.fixture
+def fake() -> Iterator[ScriptedHarness]:
+    """注册脚本化假 harness，用完卸载（AI 任务域测试共用）。"""
+    h = ScriptedHarness()
+    harness_registry.set_harness(h)
+    yield h
+    harness_registry.set_harness(None)
 
 
 @pytest.fixture

@@ -19,6 +19,7 @@ from __future__ import annotations
 import json
 import sqlite3
 import uuid
+from datetime import date
 from typing import Any
 
 from atelier.server.core import db
@@ -52,12 +53,14 @@ __all__ = [
     "run_ai_text",
     "topic_with_score",
     "update_topic",
+    "validate_due_date",
     "validate_title",
 ]
 
-#: SPEC-08 §0 D5 冻结的枚举。hot / calendar 留给 M2-2 / M2-3，本批写库即拒。
+#: SPEC-08 §0 D5 冻结的枚举。``calendar`` 由 SPEC-09（M2-2）按预留位兑现；
+#: ``hot`` 留给 M2-3，写库仍拒。
 STATUS_VALUES: tuple[str, ...] = ("todo", "doing", "done")
-SOURCE_VALUES: tuple[str, ...] = ("manual", "decode", "matrix")
+SOURCE_VALUES: tuple[str, ...] = ("manual", "decode", "matrix", "calendar")
 
 #: AI 产出统一跑的门禁（SPEC-08 §4）。wordcount 不在列：选题不是发布内容，
 #: 钩子的字数判定走 :mod:`hooks` 里的平台口径原语。
@@ -68,7 +71,7 @@ TITLE_MAX = 80
 ANGLE_MAX = 200
 
 _TASK_SUFFIX = (
-    "【任务说明】本次是工作台选题域的结构化任务调用：只输出任务要求的 Markdown 或 JSON，"
+    "【任务说明】本次是工作台后台的结构化任务调用：只输出任务要求的 Markdown 或 JSON，"
     "不要调用工具、不要写文件、不要反问。"
 )
 
@@ -128,6 +131,29 @@ def _validate_angle(angle: Any) -> str:
     return a
 
 
+def validate_due_date(value: Any) -> str:
+    """可空日期（``YYYY-MM-DD``，SPEC-09 §1）。None / 空串 → ``""``；非法抛 ``ValidationError``。
+
+    必须是零填充完整格式（``2026-1-2`` 这类宽松写法按非法处理），保证可比、可排序。
+    """
+    if value is None or value == "":
+        return ""
+    if not isinstance(value, str):
+        raise ValidationError("due_date 必须是 YYYY-MM-DD 格式的字符串", detail={"due_date": value})
+    v = value.strip()
+    try:
+        parsed = date.fromisoformat(v)
+    except ValueError as exc:
+        raise ValidationError(
+            "due_date 不是合法日期", detail={"due_date": value}, hint="格式：YYYY-MM-DD"
+        ) from exc
+    if parsed.isoformat() != v:
+        raise ValidationError(
+            "due_date 必须是零填充的 YYYY-MM-DD", detail={"due_date": value}
+        )
+    return v
+
+
 def row_to_topic(row: sqlite3.Row) -> dict[str, Any]:
     """行 → API 形状。全包唯一的 topics 行转换出口（matrix 回读也走这里）。"""
     return {
@@ -139,6 +165,7 @@ def row_to_topic(row: sqlite3.Row) -> dict[str, Any]:
         "source_ref": row["source_ref"] or "",
         "status": row["status"],
         "decode": row["decode"] or "",
+        "due_date": row["due_date"] or "",
         "created_at": row["created_at"],
         "updated_at": row["updated_at"],
     }
@@ -180,16 +207,19 @@ def create_topic(
     source: str = "manual",
     source_ref: str | None = None,
     decode: str | None = None,
+    due_date: str | None = None,
 ) -> dict[str, Any]:
-    """新建选题。``decode`` 字段仅 ``source=decode`` 时接受（SPEC-08 §5）。"""
+    """新建选题。``decode`` 仅 ``source=decode`` 时接受（SPEC-08 §5）；
+    ``due_date`` 为可空 ISO 日期（SPEC-09，日历建议/后续排期用）。"""
     if source not in SOURCE_VALUES:
         raise ValidationError(
             f"source 只允许 {' / '.join(SOURCE_VALUES)}",
             detail={"source": source},
-            hint="hot / calendar 来源留给后续批次，当前不接受",
+            hint="hot 来源留给后续批次，当前不接受",
         )
     t = validate_title(title)
     a = _validate_angle(angle)
+    d = validate_due_date(due_date)
     if decode and source != "decode":
         raise ValidationError(
             "只有来源为拆解（source=decode）的选题可以带拆解正文",
@@ -203,9 +233,9 @@ def create_topic(
     with db.db_session() as conn:
         conn.execute(
             "INSERT INTO topics (id, profile_id, title, angle, source, source_ref, status,"
-            " decode, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?)",
+            " decode, due_date, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
             (tid, profile_id, t, a, source, (source_ref or "").strip(), "todo",
-             decode, created, created),
+             decode, d, created, created),
         )
     return get_topic(tid)
 
@@ -242,7 +272,10 @@ def topic_with_score(topic_id: str) -> dict[str, Any]:
 
 
 def update_topic(topic_id: str, changes: dict[str, Any]) -> dict[str, Any]:
-    """改 title / angle / status。全空的 PATCH 原样返回（幂等）。"""
+    """改 title / angle / status / due_date。全空的 PATCH 原样返回（幂等）。
+
+    ``due_date`` 语义：请求体里没带或显式 ``null`` = 不动；空串 = 清空；合法 ISO = 设置。
+    """
     current = get_topic(topic_id)
     sets: list[str] = []
     args: list[Any] = []
@@ -260,6 +293,9 @@ def update_topic(topic_id: str, changes: dict[str, Any]) -> dict[str, Any]:
             )
         sets.append("status = ?")
         args.append(changes["status"])
+    if "due_date" in changes and changes["due_date"] is not None:
+        sets.append("due_date = ?")
+        args.append(validate_due_date(changes["due_date"]))
     if sets:
         sets.append("updated_at = ?")
         args.append(db.utcnow())
@@ -286,13 +322,19 @@ def latest_score(topic_id: str) -> dict[str, Any] | None:
 # ---------------------------------------------------------------------------
 
 
-async def run_ai_text(*, task: str, prompt: str, profile_id: str | None) -> str:
-    """流式收集一轮 AI 文本。空产出按 ``AIOutputInvalid`` 报错，不静默当成功。"""
+async def run_ai_text(
+    *, task: str, prompt: str, profile_id: str | None, domain: str = "topics"
+) -> str:
+    """流式收集一轮 AI 文本。空产出按 ``AIOutputInvalid`` 报错，不静默当成功。
+
+    ``domain`` 决定 session_id 前缀（topics / calendar，SPEC-09 §0 D1），默认值
+    保证既有调用行为不变。
+    """
     profile = profile_store.get_profile(profile_id) if profile_id else None
     harness = get_harness()
     turn_id = uuid.uuid4().hex
     req = TurnRequest(
-        session_id=f"topics-{task}-{turn_id[:8]}",
+        session_id=f"{domain}-{task}-{turn_id[:8]}",
         turn_id=turn_id,
         prompt=prompt,
         profile=profile,

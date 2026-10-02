@@ -1,68 +1,34 @@
 """SPEC-08 §8 · 选题域测试（M2-1）。
 
 四条 AI 任务（decode / score / matrix / hooks）统一走**脚本化 fake harness**
-（同 test_chat 的模式）：真实模型不可测，mock 的写死文本又过不了结构化约定，
-所以用可控输出的假 harness 断言「域服务对 harness 的用法」与「解析/门禁/落库」。
+（``conftest.ScriptedHarness``，M2 起上移共用）：真实模型不可测，mock 的写死
+文本又过不了结构化约定，所以用可控输出的假 harness 断言「域服务对 harness
+的用法」与「解析/门禁/落库」。
 
 合规门禁用「全网最好」触发 BLOCK（见 gates/compliance.py 的 _PATTERNS）。
 """
 
 from __future__ import annotations
 
-from collections.abc import AsyncIterator, Iterator
-from typing import Any
+from collections.abc import Iterator
+from typing import TYPE_CHECKING, Any
 
 import pytest
 from fastapi.testclient import TestClient
 
 from atelier.server.config import reload_settings
 from atelier.server.core import db
-from atelier.server.harness import registry as harness_registry
-from atelier.server.harness.base import EventType, HealthReport, TurnEvent, TurnRequest
 from atelier.server.main import create_app
 from atelier.server.topics import score as score_mod
 from atelier.server.topics.service import AI_GATES
+
+if TYPE_CHECKING:
+    from conftest import ScriptedHarness
 
 JSON = {"Content-Type": "application/json"}
 
 
 # --------------------------------------------------------------------------- fixtures
-
-
-class ScriptedHarness:
-    """按队列吐文本的假 harness。记录 TurnRequest，供断言画像注入与 prompt 拼装。"""
-
-    name = "scripted"
-
-    def __init__(self, outputs: list[str] | None = None) -> None:
-        self.outputs: list[str] = list(outputs or [])
-        self.requests: list[TurnRequest] = []
-
-    async def stream(self, req: TurnRequest) -> AsyncIterator[TurnEvent]:
-        self.requests.append(req)
-        text = self.outputs.pop(0) if self.outputs else ""
-        yield TurnEvent(EventType.TEXT_DELTA, req.turn_id, {"text": text})
-        yield TurnEvent(EventType.DONE, req.turn_id, {"text": text, "provider": self.name})
-
-    async def interrupt(self, turn_id: str) -> None:  # pragma: no cover - 本批用不到
-        return None
-
-    async def resume(self, turn_id: str) -> list[TurnEvent]:  # pragma: no cover
-        return []
-
-    async def health(self) -> HealthReport:
-        return HealthReport(name=self.name, ok=True)
-
-    async def aclose(self) -> None:
-        return None
-
-
-@pytest.fixture
-def fake() -> Iterator[ScriptedHarness]:
-    h = ScriptedHarness()
-    harness_registry.set_harness(h)
-    yield h
-    harness_registry.set_harness(None)
 
 
 @pytest.fixture
@@ -125,7 +91,9 @@ def _dims_json(total_target: int) -> str:
 class TestSchemaV3:
     def test_version_and_tables(self, client: TestClient) -> None:
         conn = db.get_conn()
-        assert db.schema_version(conn) == 3
+        # topics/topic_scores 是 v3 引入的（SPEC-08 §1）；当前版本跟随 SCHEMA_VERSION（v4 起，SPEC-09）
+        assert db.schema_version(conn) == db.SCHEMA_VERSION
+        assert db.schema_version(conn) >= 3
         names = set(db.table_names(conn))
         assert {"topics", "topic_scores"} <= names
         idx = {r[1] for r in conn.execute("PRAGMA index_list(topics)").fetchall()}
@@ -159,7 +127,7 @@ class TestCrud:
     def test_validation(self, client: TestClient) -> None:
         assert client.post("/api/topics", json={"title": "   "}, headers=JSON).status_code == 422
         assert client.post("/api/topics", json={"title": "长" * 81}, headers=JSON).status_code == 422
-        # SPEC-08 §0 D5：hot/calendar 来源本批不收
+        # SPEC-09 起 source=calendar 放行（SPEC-08 §0 D5 预留位兑现），hot 仍不收
         r = client.post("/api/topics", json={"title": "x", "source": "hot"}, headers=JSON)
         assert r.status_code == 422 and r.json()["error"]["code"] == "ValidationError"
         # decode 正文只允许 source=decode 携带
@@ -187,6 +155,23 @@ class TestCrud:
         assert client.delete(f"/api/topics/{t['id']}", headers=JSON).json()["ok"] is True
         assert client.get(f"/api/topics/{t['id']}").status_code == 404
         assert client.delete(f"/api/topics/{t['id']}", headers=JSON).status_code == 404
+
+    def test_due_date_and_calendar_source(self, client: TestClient) -> None:
+        """SPEC-09：calendar 来源兑现 SPEC-08 §0 D5 预留位；due_date 可设置/清空。"""
+        r = client.post("/api/topics", json={"title": "日历建议来的选题", "source": "calendar",
+                                             "source_ref": "双11"}, headers=JSON)
+        assert r.status_code == 201 and r.json()["source"] == "calendar"
+        tid = r.json()["id"]
+        r = client.post("/api/topics", json={"title": "带日期的新选题", "due_date": "2026-10-10"}, headers=JSON)
+        assert r.status_code == 201 and r.json()["due_date"] == "2026-10-10"
+        # 非零填充 / 非法日期一律 422
+        assert client.post("/api/topics", json={"title": "x", "due_date": "2026-1-2"}, headers=JSON).status_code == 422
+        assert client.post("/api/topics", json={"title": "x", "due_date": "不是日期"}, headers=JSON).status_code == 422
+        # PATCH：设置、清空（空串），缺省（null）不动
+        r = client.patch(f"/api/topics/{tid}", json={"due_date": "2026-10-11"}, headers=JSON)
+        assert r.status_code == 200 and r.json()["due_date"] == "2026-10-11"
+        r = client.patch(f"/api/topics/{tid}", json={"due_date": ""}, headers=JSON)
+        assert r.status_code == 200 and r.json()["due_date"] == ""
 
 
 # --------------------------------------------------------------------------- decode

@@ -17,6 +17,7 @@ EXPECTED_TABLES = {
     "profiles", "memories", "sessions", "messages", "artifacts",
     "publish_drafts", "publish_records", "platform_creds", "settings",
     "skill_runs", "topics", "topic_scores",  # v3：M2-1 选题域（SPEC-08 §1）
+    "calendar_events",  # v4：M2-2 日历域（SPEC-09 §1）
 }
 
 
@@ -43,8 +44,8 @@ class TestSchema:
 
     def test_schema_version_recorded(self, atelier_root: Path) -> None:
         conn = db.init_db()
-        # M2-1 起为 v3（topics / topic_scores，SPEC-08 §1）；升级版本时同步改这里
-        assert db.schema_version(conn) == db.SCHEMA_VERSION == 3
+        # M2-2 起为 v4（calendar_events + topics.due_date，SPEC-09 §1）；升级版本时同步改这里
+        assert db.schema_version(conn) == db.SCHEMA_VERSION == 4
 
     def test_migration_is_idempotent(self, atelier_root: Path) -> None:
         conn = db.init_db()
@@ -119,6 +120,8 @@ class TestColumns:
             ("publish_records", ("id", "draft_id", "platform", "status", "error_code", "published_url")),
             ("platform_creds", ("id", "platform", "secret_ref", "state", "verified_at")),
             ("settings", ("k", "v")),
+            ("topics", ("id", "title", "source", "status", "due_date")),
+            ("calendar_events", ("id", "title", "date", "end_date", "kind", "remind_days", "source")),
         ],
     )
     def test_expected_columns_present(self, atelier_root: Path, table: str, must_have: tuple[str, ...]) -> None:

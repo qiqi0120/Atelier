@@ -5,7 +5,7 @@ import { Check } from 'lucide-react'
 import { Button, Chip, Field, Modal, Select, toast } from '@/components'
 import { useAtelier } from '@/lib/store'
 import { topicsApi } from './api'
-import { describeError } from './describe'
+import { describeError } from '@/lib/gates'
 import type { HooksResult, Topic } from './types'
 
 const PLATFORM_OPTIONS = [

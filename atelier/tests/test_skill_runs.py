@@ -103,8 +103,8 @@ def test_migration_v1_to_v2_adds_skill_runs(tmp_path: Path) -> None:
         # migrate 一路升到当前最新版本（v3+），v2 这步本身必须发生
         assert db.schema_version(conn) == db.SCHEMA_VERSION
         assert "skill_runs" in db.table_names(conn)
-        # v1 的 9 张 + v2 的 skill_runs + v3 的 topics/topic_scores
-        assert len(db.table_names(conn)) == 12
+        # v1 的 9 张 + v2 的 skill_runs + v3 的 topics/topic_scores + v4 的 calendar_events
+        assert len(db.table_names(conn)) == 13
 
         # 老数据没被动过
         assert len(conn.execute("SELECT * FROM settings").fetchall()) == 0

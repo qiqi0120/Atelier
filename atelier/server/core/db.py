@@ -40,7 +40,8 @@ __all__ = [
 ]
 
 #: SPEC-01 §7 的表清单。skill_runs 为 M1 收尾时补的第 10 张表（见 _apply_v2）；
-#: topics / topic_scores 为 M2-1 选题域补的第 11、12 张（见 _apply_v3，SPEC-08 §1）。
+#: topics / topic_scores 为 M2-1 选题域补的第 11、12 张（见 _apply_v3，SPEC-08 §1）；
+#: calendar_events 为 M2-2 日历域补的第 13 张（见 _apply_v4，SPEC-09 §1）。
 TABLE_NAMES: tuple[str, ...] = (
     "profiles",
     "memories",
@@ -54,9 +55,10 @@ TABLE_NAMES: tuple[str, ...] = (
     "skill_runs",
     "topics",
     "topic_scores",
+    "calendar_events",
 )
 
-SCHEMA_VERSION = 3
+SCHEMA_VERSION = 4
 
 _DDL: tuple[str, ...] = (
     """CREATE TABLE IF NOT EXISTS profiles (
@@ -130,10 +132,14 @@ _EXPECTED: dict[str, tuple[str, ...]] = {
     ),
     "topics": (
         "id", "profile_id", "title", "angle", "source", "source_ref",
-        "status", "decode", "created_at", "updated_at",
+        "status", "decode", "due_date", "created_at", "updated_at",
     ),
     "topic_scores": (
         "id", "topic_id", "dims", "total", "verdict", "reason", "created_at",
+    ),
+    "calendar_events": (
+        "id", "title", "date", "end_date", "kind", "note",
+        "remind_days", "source", "created_at", "updated_at",
     ),
 }
 
@@ -230,8 +236,35 @@ def _apply_v3(conn: sqlite3.Connection) -> None:
     )
 
 
+def _apply_v4(conn: sqlite3.Connection) -> None:
+    """v4 · 补 ``calendar_events``（M2-2 日历域，SPEC-09 §1）。
+
+    全局事件表（不带画像，SPEC-09 §0 D2）；``topics.due_date`` 可空列由
+    ``_add_missing_columns`` 依 ``_EXPECTED`` 自动补，不在这里写 ALTER。
+    """
+    conn.execute(
+        """CREATE TABLE IF NOT EXISTS calendar_events (
+  id TEXT PRIMARY KEY,
+  title TEXT NOT NULL,
+  date TEXT NOT NULL,
+  end_date TEXT,
+  kind TEXT NOT NULL,
+  note TEXT,
+  remind_days INTEGER NOT NULL DEFAULT 3,
+  source TEXT NOT NULL,
+  created_at TEXT, updated_at TEXT
+)"""
+    )
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_calendar_date ON calendar_events(date)")
+
+
 #: 版本号 → 迁移步骤。新增版本时只往这里加一项，不要动老步骤（SPEC-01 §7 幂等）。
-_MIGRATIONS: dict[int, Callable[[sqlite3.Connection], None]] = {1: _apply_v1, 2: _apply_v2, 3: _apply_v3}
+_MIGRATIONS: dict[int, Callable[[sqlite3.Connection], None]] = {
+    1: _apply_v1,
+    2: _apply_v2,
+    3: _apply_v3,
+    4: _apply_v4,
+}
 
 _local = threading.local()
 _INIT_LOCK = threading.Lock()
