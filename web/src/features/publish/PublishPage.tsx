@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { Wand2 } from 'lucide-react'
 import { Button, Chip, Skeleton, toast } from '@/components'
 import { PageHead } from '@/features/shared/PageHead'
 import { MasterEditor } from './MasterEditor'
 import { MediaAttachments } from './MediaAttachments'
+import { OptimizeDialog } from './OptimizeDialog'
 import { PlatformPicker } from './PlatformPicker'
 import { PlatformVariantCard } from './PlatformVariantCard'
 import { PrecheckPanel } from './PrecheckPanel'
@@ -19,6 +21,7 @@ import type {
   PrecheckResult,
   PublishDraft,
   PublishRecord,
+  SchedulerStatus,
 } from './types'
 
 /**
@@ -45,6 +48,8 @@ export function PublishPage() {
   const [publishing, setPublishing] = useState(false)
   const [smsRecord, setSmsRecord] = useState<string | null>(null)
   const [booted, setBooted] = useState(false)
+  const [scheduler, setScheduler] = useState<SchedulerStatus | null>(null)
+  const [optimizeOpen, setOptimizeOpen] = useState(false)
   const saveSeq = useRef(0)
 
   /* ---------------------------------------------------------- 初始化 */
@@ -78,6 +83,22 @@ export function PublishPage() {
     }
   }, [])
 
+  /* F-G20 调度器状态：页面加载拉一次即可（只读 Chip） */
+  useEffect(() => {
+    let alive = true
+    publishApi
+      .scheduler()
+      .then((s) => {
+        if (alive) setScheduler(s)
+      })
+      .catch(() => {
+        /* 拉不到就不显示 Chip，不挡发布主流程 */
+      })
+    return () => {
+      alive = false
+    }
+  }, [])
+
   /* ---------------------------------------------------------- 自动保存 */
 
   const save = useCallback(
@@ -103,6 +124,15 @@ export function PublishPage() {
       setDraft((d) => (d ? { ...d, ...p } : d))
     },
     [],
+  )
+
+  /** F-G19：优化建议里一键替换标题 → 本地 patch（母版编辑器随 draft.title 重同步）+ 立即落库 */
+  const replaceTitle = useCallback(
+    (title: string) => {
+      patch({ title })
+      save({ title })
+    },
+    [patch, save],
   )
 
   /* ---------------------------------------------------------- 平台勾选 */
@@ -283,6 +313,16 @@ export function PublishPage() {
         desc="一份母版，多平台适配。逐字流式生成 + 逐平台字数门禁。"
         actions={
           <>
+            {scheduler && scheduler.enabled ? (
+              <Chip tone="outline" title={scheduler.notice}>
+                定时发布 · 每 {scheduler.interval_seconds}s 扫描 · {scheduler.due_count} 条到期
+              </Chip>
+            ) : null}
+            {scheduler && scheduler.enabled === false ? (
+              <Chip tone="warn" title={scheduler.notice}>
+                定时发布已停用（ATELIER_SCHEDULER=0）
+              </Chip>
+            ) : null}
             <Chip tone="accent">
               <i className="live-dot" />
               {savedAt ? `草稿自动保存 · ${new Date(savedAt).toTimeString().slice(0, 5)}` : '草稿自动保存'}
@@ -332,6 +372,18 @@ export function PublishPage() {
             generated={generated}
             adapting={adapting}
             onToggle={toggle}
+            extraActions={
+              <Button
+                size="sm"
+                variant="ghost"
+                icon={Wand2}
+                disabled={!draft}
+                disabledReason="先新建或选一份草稿"
+                onClick={() => setOptimizeOpen(true)}
+              >
+                优化建议
+              </Button>
+            }
           >
             {selected.map((p) => (
               <PlatformVariantCard key={p} variant={variantOf(p)} streaming={stream[p]} />
@@ -377,6 +429,13 @@ export function PublishPage() {
         busy={publishing}
         onCancel={() => setConfirmOpen(false)}
         onConfirm={() => void doPublish()}
+      />
+      <OptimizeDialog
+        open={optimizeOpen}
+        onClose={() => setOptimizeOpen(false)}
+        draft={draft}
+        platforms={platforms}
+        onReplaceTitle={replaceTitle}
       />
       <SmsDialog
         recordId={smsRecord}

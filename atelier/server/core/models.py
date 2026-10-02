@@ -210,9 +210,13 @@ class Capability(BaseModel):
 
 
 class PlatformVariant(BaseModel):
-    """母版 → 单平台版本的适配结果（字数超限红标并阻断发布，M1 出口标准 7）。"""
+    """母版 → 单平台版本的适配结果（字数超限红标并阻断发布，M1 出口标准 7）。
 
-    platform: Literal["xhs", "dy", "gzh"]
+    ``platform`` 枚举：M1 三平台（SPEC-06 §2 冻结）；M4 追加 4 平台
+    （SPEC-14 §0 D1/D2，只追加不改既有值）。
+    """
+
+    platform: Literal["xhs", "dy", "gzh", "ks", "zhihu", "bilibili", "wcs"]
     title: str
     body: str
     char_count: int

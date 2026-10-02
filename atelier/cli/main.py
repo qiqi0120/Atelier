@@ -1,13 +1,14 @@
 """SPEC-01 §11 · ``atelier`` 命令行。
 
-五个子命令（PRD F-J1~F-J5）：
+六个子命令（PRD F-J1~F-J6）：
 
 ======================  =======================================================
 ``atelier web``         起本地服务（127.0.0.1，默认 8000）
 ``atelier chat``        终端里对话（流式），不需要开服务
 ``atelier skill <名>``  就地跑一个技能
-``atelier doctor``      17 项环境体检，**每项给具体值**（PRD 原则四：不许只说「通过」）
+``atelier doctor``      18 项环境体检，**每项给具体值**（PRD 原则四：不许只说「通过」）
 ``atelier ping``        探活：服务在不在、版本对不对
+``atelier gateway``     AI 运行时状态（本仓库为进程内直连，无独立网关进程）
 ======================  =======================================================
 
 所有子命令都能 ``--json`` 输出机器可读结果，方便接 CI。
@@ -41,8 +42,9 @@ from ..server.gates.registry import run_gates
 
 __all__ = ["DOCTOR_CHECK_COUNT", "Check", "check_all", "main", "run_doctor"]
 
-#: SPEC-00 §3：doctor 17 项检查
-DOCTOR_CHECK_COUNT = 17
+#: SPEC-00 §3：doctor 检查项。M5 起 17 → 18（F-I5 local_agents，SPEC-15 §3；
+#: SPEC-00 §3 的「17 项」数字偏差已登记 SPEC-15 §7）
+DOCTOR_CHECK_COUNT = 18
 
 #: 子进程统一约束（SPEC-01 §9：shell=False、参数数组、超时 kill、stderr 截断 8KB）
 SUBPROC_TIMEOUT = 6.0
@@ -103,7 +105,7 @@ def _key_present(*names: str) -> list[str]:
 
 
 # ---------------------------------------------------------------------------
-# 17 项检查
+# 18 项检查
 # ---------------------------------------------------------------------------
 
 
@@ -358,6 +360,22 @@ def check_browser_session() -> Check:
     )
 
 
+def check_local_agents() -> Check:
+    """F-I5 本地 Agent 检测（M5，SPEC-15 §3）：本机装了哪些 agent CLI。
+
+    检测到与否都是**合法状态**（一律不 FAIL）——这只是环境信息，不是缺陷；
+    「启用外部 agent」属 harness registry 扩展，当前 provider 只有
+    claude-agent-sdk / Mock（SPEC-01 §4），hint 固定如实说明。
+    """
+    candidates = ("claude", "codex", "gemini", "aider", "cursor-agent")
+    found = [name for name in candidates if shutil.which(name)]
+    value = ", ".join(found) if found else "未检测到本机 agent CLI"
+    return Check(
+        "local_agents", "本地 Agent 检测", OK, value,
+        "启用外部 agent 属 harness registry 扩展，当前仅支持 claude-agent-sdk / Mock",
+    )
+
+
 #: 顺序即报告顺序。数量必须等于 :data:`DOCTOR_CHECK_COUNT`。
 CHECKS: tuple[tuple[str, str, Callable[[], Check]], ...] = (
     ("python", "Python 运行时", check_python),
@@ -377,6 +395,7 @@ CHECKS: tuple[tuple[str, str, Callable[[], Check]], ...] = (
     ("git", "git 可用", check_git),
     ("port", "服务端口", check_port),
     ("browser_session", "浏览器会话复用", check_browser_session),
+    ("local_agents", "本地 Agent 检测", check_local_agents),
 )
 
 
@@ -387,7 +406,7 @@ def _pad(text: str, width: int) -> str:
 
 
 def check_all() -> list[Check]:
-    """跑完 17 项。单项检查自己抛异常也算一项 fail（体检不能被一项打挂）。"""
+    """跑完全部检查项（数量见 :data:`DOCTOR_CHECK_COUNT`）。单项检查自己抛异常也算一项 fail（体检不能被一项打挂）。"""
     # 先幂等建目录：doctor 要报的是「目录能不能用」，不是「在不在」——
     # 否则刚 clone 下来必然第 6 项 fail，而 `atelier web` 一跑就又是好的。
     try:
@@ -590,6 +609,71 @@ async def _chat(args: argparse.Namespace) -> int:
 
 
 # ---------------------------------------------------------------------------
+# gateway（F-J6，SPEC-15 §3）· 诚实实现：本仓库 harness 是进程内直连
+# ---------------------------------------------------------------------------
+
+#: 固定诚实说明——status / start / stop 的输出都必须带这一句
+GATEWAY_NOTE = "本仓库无独立 gateway 进程；start/stop 不适用，进程随 `atelier web` 生命周期"
+
+
+def gateway_state() -> dict[str, Any]:
+    """当前 harness 形态的配置层判定（只读配置，不实例化 provider）。
+
+    ATELIER_MOCK=1 → mock；有 ANTHROPIC_API_KEY → claude-sdk；两者皆无 → 未配置。
+    真实 health 依赖运行中的服务进程，CLI 环境只报配置判定并如实标注。
+    """
+    st = get_settings()
+    if st.mock:
+        harness = "mock"
+        detail = "ATELIER_MOCK=1：输出写死，用于验证流程"
+    elif st.has_harness_auth:
+        harness = "claude-sdk"
+        detail = f"provider={st.harness_name}；ANTHROPIC_API_KEY 已配置"
+    else:
+        harness = "unconfigured"
+        detail = "没有 ANTHROPIC_API_KEY 也没开 ATELIER_MOCK：AI 调用会失败"
+    redacted = st.redacted()
+    return {
+        "harness": harness,
+        "provider": str(redacted["harness_name"]),
+        "detail": detail,
+        "health": "配置层判定见 detail；真实 health 需 `atelier web` 起服务后看 /api/health",
+        "keys": {
+            "anthropic_api_key": redacted["anthropic_api_key"],
+            "master_key": redacted["master_key"],
+        },
+        "in_process": True,
+        "note": GATEWAY_NOTE,
+    }
+
+
+def cmd_gateway(args: argparse.Namespace) -> int:
+    if args.action in ("start", "stop"):
+        reason = (
+            f"gateway {args.action} 不适用：{GATEWAY_NOTE}"
+            "（harness 由 atelier web / chat 进程内直接创建，没有可单独启停的守护进程）"
+        )
+        if args.json:
+            print(json.dumps({"ok": False, "action": args.action, "reason": reason},
+                             ensure_ascii=False, indent=2))
+        else:
+            print(reason)
+        return 1
+
+    state = gateway_state()
+    if args.json:
+        print(json.dumps(state, ensure_ascii=False, indent=2))
+        return 0
+    print("Atelier gateway 状态")
+    print(f"  harness : {state['harness']}（{state['detail']}）")
+    print(f"  health  : {state['health']}")
+    key = state["keys"]["anthropic_api_key"]
+    print(f"  密钥     : anthropic_api_key = {key or '未配置（只显示掩码，不回传原文）'}")
+    print(f"  {state['note']}")
+    return 0
+
+
+# ---------------------------------------------------------------------------
 # 入口
 # ---------------------------------------------------------------------------
 
@@ -624,6 +708,16 @@ def build_parser() -> argparse.ArgumentParser:
     g.add_argument("--json", action="store_true")
     g.add_argument("--timeout", type=float, default=3.0)
     g.set_defaults(func=cmd_ping)
+
+    gw = sub.add_parser(
+        "gateway",
+        help="AI 运行时状态（本仓库 harness 为进程内直连，无独立网关进程；"
+             "不提供 start/stop——进程随 `atelier web` 生命周期）",
+    )
+    gw.add_argument("action", nargs="?", default="status", choices=["status", "start", "stop"],
+                    help="只支持 status；start/stop 不适用（见 help 说明）")
+    gw.add_argument("--json", action="store_true", help="输出 JSON")
+    gw.set_defaults(func=cmd_gateway)
 
     return p
 

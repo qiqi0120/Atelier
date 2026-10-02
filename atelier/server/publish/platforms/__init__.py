@@ -8,19 +8,27 @@ from __future__ import annotations
 
 from ...errors import ValidationError
 from .base import AuthState, BaseAdapter, PublishAdapter, PublishResult
+from .bilibili import adapter as bilibili_adapter
 from .douyin import adapter as douyin_adapter
+from .kuaishou import adapter as kuaishou_adapter
+from .wechat_channels import adapter as wechat_channels_adapter
 from .wechat_mp import adapter as wechat_mp_adapter
 from .xiaohongshu import adapter as xhs_adapter
+from .zhihu import adapter as zhihu_adapter
 
 __all__ = [
     "ADAPTERS",
     "AuthState",
     "BaseAdapter",
+    "BilibiliAdapter",
     "DouyinAdapter",
+    "KuaishouAdapter",
     "PublishAdapter",
     "PublishResult",
+    "WechatChannelsAdapter",
     "WechatMPAdapter",
     "XHSAdapter",
+    "ZhihuAdapter",
     "get_adapter",
     "known_platforms",
 ]
@@ -34,6 +42,10 @@ ADAPTERS: dict[str, BaseAdapter] = {
     "xhs": xhs_adapter,
     "dy": douyin_adapter,
     "gzh": wechat_mp_adapter,
+    "ks": kuaishou_adapter,
+    "zhihu": zhihu_adapter,
+    "bilibili": bilibili_adapter,
+    "wcs": wechat_channels_adapter,
 }
 
 

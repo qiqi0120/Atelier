@@ -64,16 +64,54 @@ PLATFORM_LIMITS: dict[str, dict[str, Any]] = {
         "needs_cover": True,
         "cover_ratio": "2.35:1",
     },
+    # ---- M4 平台扩展（SPEC-14 §0 D1/D2：只追加，上面 3 条未动）----
+    "ks": {
+        "name": "快手",
+        "forms": ["image", "video"],
+        "title_max": 20,
+        "body_max": 1000,
+        "needs_cover": False,
+        "cover_ratio": None,
+    },
+    "zhihu": {
+        "name": "知乎",
+        "forms": ["text"],
+        "title_max": 100,
+        "body_max": 20000,
+        "needs_cover": False,
+        "cover_ratio": None,
+    },
+    "bilibili": {
+        "name": "B站",
+        "forms": ["video"],
+        "title_max": 80,
+        "body_max": 2000,
+        "needs_cover": False,
+        "cover_ratio": None,
+    },
+    "wcs": {
+        "name": "视频号",
+        "forms": ["video"],
+        "title_max": 16,
+        "body_max": 1000,
+        "needs_cover": False,
+        "cover_ratio": None,
+    },
 }
 
-#: 前端渲染顺序（与原型一致：小红书 / 抖音 / 公众号）
-PLATFORM_ORDER: tuple[str, ...] = ("xhs", "dy", "gzh")
+#: 前端渲染顺序（与原型一致：小红书 / 抖音 / 公众号；M4 追加 4 平台）
+PLATFORM_ORDER: tuple[str, ...] = ("xhs", "dy", "gzh", "ks", "zhihu", "bilibili", "wcs")
 
 #: 各平台适配时给模型的口吻提示（不改变人设，只改表达层）
 _TONE: dict[str, str] = {
     "xhs": "小红书口吻：短句 + emoji 分隔 + 结尾留互动问题；保留反常识钩子与具体数字。",
     "dy": "抖音口播标题：一个钩子 + 具体数字，不要长尾从句；正文即口播节奏的短句串。",
     "gzh": "公众号长文：可用小标题分段，开头给结论，结尾留真问题；不要 emoji 堆砌。",
+    # M4 追加（SPEC-14）
+    "ks": "快手口吻：接地气短句 + 生活化场景，直接说人话；可带话题标签。",
+    "zhihu": "知乎口吻：先给结论再给论证，用「先说答案」开头；逻辑分层，不写营销腔。",
+    "bilibili": "B站口吻：标题有信息量不标题党；简介给章节要点（如 00:12 讲XX）。",
+    "wcs": "视频号口吻：描述一句话讲清价值，社交转发的语气，克制不用感叹号堆砌。",
 }
 
 

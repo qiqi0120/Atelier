@@ -108,15 +108,61 @@ const BLOCKED_PRECHECK = {
   warn_count: 1,
 }
 
+/** F-G20 调度器状态（可按用例覆盖 enabled） */
+let schedulerResponse: Record<string, unknown> = {
+  enabled: true,
+  interval_seconds: 30,
+  due_count: 2,
+  last_tick: '2026-10-03T08:00:00Z',
+  running: true,
+  now: '2026-10-03T08:00:30Z',
+  notice: '定时发布到点触发的是标准发布流程：校验全部真实执行；当前真实发布仍为 dry-run（需真实账号与风控验证）',
+}
+
+/** F-G19 优化建议响应（可按用例覆盖） */
+let optimizeResponse: Record<string, unknown> = {
+  platform: 'xhs',
+  titles: ['3 个 Agent，砍掉一半内容流程', '我把内容生产流水线压缩了一半'],
+  tags: ['AI工作流', '效率工具'],
+  timing: '工作日 12:00-13:00 发布打开率更高',
+  notes: ['首图加一句人话钩子', '结尾留互动问题'],
+  gate_report: { blocked: false, items: [], summary: { total: 1, failed: 0, blocked_items: 0, warn_items: 0 } },
+}
+
 beforeEach(() => {
   calls = []
   precheckResponse = { items: [], blocked: false, block_count: 0, warn_count: 0 }
+  schedulerResponse = {
+    enabled: true,
+    interval_seconds: 30,
+    due_count: 2,
+    last_tick: '2026-10-03T08:00:00Z',
+    running: true,
+    now: '2026-10-03T08:00:30Z',
+    notice: '定时发布到点触发的是标准发布流程：校验全部真实执行；当前真实发布仍为 dry-run（需真实账号与风控验证）',
+  }
+  optimizeResponse = {
+    platform: 'xhs',
+    titles: ['3 个 Agent，砍掉一半内容流程', '我把内容生产流水线压缩了一半'],
+    tags: ['AI工作流', '效率工具'],
+    timing: '工作日 12:00-13:00 发布打开率更高',
+    notes: ['首图加一句人话钩子', '结尾留互动问题'],
+    gate_report: { blocked: false, items: [], summary: { total: 1, failed: 0, blocked_items: 0, warn_items: 0 } },
+  }
   vi.stubGlobal(
     'fetch',
     vi.fn(async (url: string, init?: RequestInit) => {
       const method = init?.method ?? 'GET'
       calls.push({ url: String(url), method, body: init?.body ? JSON.parse(String(init.body)) : null })
       if (String(url).includes('/publish/platforms')) return json({ platforms: PLATFORMS })
+      if (String(url).endsWith('/publish/scheduler')) return json(schedulerResponse)
+      if (String(url).endsWith('/publish/optimize')) {
+        // 带 error 键 → 按非 2xx 返回，走 api 层的 ApiError 解析路径
+        if (optimizeResponse && typeof optimizeResponse === 'object' && 'error' in optimizeResponse) {
+          return json(optimizeResponse, 422)
+        }
+        return json(optimizeResponse)
+      }
       if (String(url).includes('/api/topics')) {
         return json({ items: [{ id: 'topic-1', title: '关联用选题' }], total: 1 })
       }
@@ -366,5 +412,90 @@ describe('发布中心 · 页面关键交互', () => {
     )
     // publish 页不许有 console 错误（验收第 9 条）
     expect(errSpy).not.toHaveBeenCalled()
+  })
+})
+
+describe('发布中心 · 调度器状态 Chip（F-G20，SPEC-14）', () => {
+  it('启用：outline Chip 显示扫描间隔与到期数，tooltip 带 dry-run 诚实说明', async () => {
+    renderPage()
+    const chip = await screen.findByText(/定时发布 · 每 30s 扫描 · 2 条到期/)
+    expect(chip).toHaveAttribute('title', expect.stringContaining('dry-run'))
+  })
+
+  it('停用：warn Chip 说明 ATELIER_SCHEDULER=0', async () => {
+    schedulerResponse = {
+      enabled: false, interval_seconds: 30, due_count: 0, last_tick: '', running: false, now: '',
+      notice: '调度器已停用',
+    }
+    renderPage()
+    expect(await screen.findByText('定时发布已停用（ATELIER_SCHEDULER=0）')).toBeInTheDocument()
+  })
+})
+
+describe('发布中心 · 平台优化建议（F-G19，SPEC-14）', () => {
+  it('弹层携带已适配平台与草稿 title/body 发请求（含画像注入）；「替换标题」触发 PATCH 并 toast', async () => {
+    renderPage()
+    const openBtn = await screen.findByRole('button', { name: '优化建议' })
+    await waitFor(() => expect(openBtn).toBeEnabled())
+    await userEvent.click(openBtn)
+    const dialog = await screen.findByRole('dialog')
+    // 默认携带第一个已适配平台（xhs）
+    expect(within(dialog).getByLabelText('针对哪个已适配平台')).toHaveValue('xhs')
+    await userEvent.click(within(dialog).getByRole('button', { name: '生成建议' }))
+    await waitFor(() => {
+      const call = calls.find((c) => c.url.endsWith('/publish/optimize'))
+      expect(call).toBeTruthy()
+      expect(call?.method).toBe('POST')
+      expect(call?.body).toMatchObject({
+        platform: 'xhs',
+        title: DRAFT.title,
+        body: '母版正文',
+        profile_id: 'ai-efficiency',
+      })
+    })
+    // 四组结果渲染
+    await waitFor(() => expect(within(dialog).getByText('工作日 12:00-13:00 发布打开率更高')).toBeInTheDocument())
+    expect(within(dialog).getByText('#AI工作流')).toBeInTheDocument()
+    expect(within(dialog).getByText('首图加一句人话钩子')).toBeInTheDocument()
+    // 替换标题 → 立即 PATCH 草稿标题 + toast
+    await userEvent.click(within(dialog).getAllByRole('button', { name: '替换标题' })[0])
+    await waitFor(() =>
+      expect(
+        calls.some(
+          (c) => c.method === 'PATCH' && (c.body as Record<string, unknown>)?.title === '3 个 Agent，砍掉一半内容流程',
+        ),
+      ).toBe(true),
+    )
+    await waitFor(() => {
+      const toastText = document.querySelector('[data-testid="toasts"]')?.textContent ?? ''
+      expect(toastText).toContain('已替换标题')
+    })
+  })
+
+  it('GateBlocked 422：弹层内 role=alert 渲染改法（describeError）', async () => {
+    optimizeResponse = {
+      error: {
+        code: 'GateBlocked',
+        message: '优化建议未通过硬门禁：极限词',
+        detail: {
+          gate_items: [
+            {
+              gate: 'compliance', label: '合规风险扫描', severity: 'block', passed: false,
+              actual: '全网最好', limit: null, message: '出现极限词「全网最好」', fix_hint: '改成「少见的」这类可验证表述',
+            },
+          ],
+          summary: { total: 1, failed: 1, blocked_items: 1, warn_items: 0 },
+        },
+        hint: '先按改法修改后再试',
+      },
+    }
+    renderPage()
+    const openBtn = await screen.findByRole('button', { name: '优化建议' })
+    await waitFor(() => expect(openBtn).toBeEnabled())
+    await userEvent.click(openBtn)
+    const dialog = await screen.findByRole('dialog')
+    await userEvent.click(within(dialog).getByRole('button', { name: '生成建议' }))
+    const alert = await within(dialog).findByRole('alert')
+    expect(alert).toHaveTextContent('改法：改成「少见的」这类可验证表述')
   })
 })

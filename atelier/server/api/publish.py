@@ -714,3 +714,43 @@ def get_records(draft_id: str) -> dict[str, Any]:
         }
         out.append(item)
     return {"records": out, "count": len(out)}
+
+# ---------------------------------------------------------------------------
+# M4 · 平台优化建议（F-G19）与定时发布状态（F-G20，SPEC-14 §1.2）
+# ---------------------------------------------------------------------------
+
+
+class OptimizeBody(BaseModel):
+    platform: str
+    title: str = ""
+    body: str = ""
+    profile_id: str | None = None
+
+
+@router.post("/publish/optimize", summary="F-G19 平台优化建议（AI，不落库）")
+async def post_optimize(body: OptimizeBody) -> dict[str, Any]:
+    from ..publish.optimize import run_optimize
+
+    if body.platform not in PLATFORM_LIMITS:
+        raise ValidationError(
+            f"不支持的平台：{body.platform}",
+            detail={"platform": body.platform, "supported": sorted(PLATFORM_LIMITS)},
+        )
+    return await run_optimize(
+        platform=body.platform, title=body.title, body=body.body,
+        profile_id=body.profile_id or None,
+    )
+
+
+@router.get("/publish/scheduler", summary="F-G20 定时发布调度器状态")
+def get_scheduler_status() -> dict[str, Any]:
+    from ..publish import scheduler
+
+    return scheduler.get_status()
+
+
+@router.post("/publish/scheduler/run-once", summary="手动跑一拍（测试/补跑用；语义与定时触发一致）")
+async def run_scheduler_once() -> dict[str, Any]:
+    from ..publish import scheduler
+
+    return await scheduler.run_due()

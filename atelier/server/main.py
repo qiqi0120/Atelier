@@ -36,7 +36,7 @@ from .. import __version__
 from . import paths
 from .config import get_settings
 from .core import db
-from .errors import CrossSiteWriteBlocked, error_response, register_exception_handlers
+from .errors import CrossSiteWriteBlocked, NotFound, error_response, register_exception_handlers
 
 __all__ = [
     "API_PACKAGE",
@@ -225,10 +225,15 @@ async def _lifespan(app: FastAPI) -> Any:
     except Exception as exc:  # noqa: BLE001 - 库起不来要说清，而不是让整个服务挂掉
         ROUTER_ERRORS["core.db"] = f"{type(exc).__name__}: {exc}"
     try:
+        from .publish.scheduler import start_scheduler
+
+        start_scheduler()  # ATELIER_SCHEDULER=0 时不启动（SPEC-14 §0 D3）
         yield
     finally:
         from .harness import registry as harness_registry
+        from .publish.scheduler import stop_scheduler
 
+        await stop_scheduler()
         h = harness_registry.current_harness()
         if h is not None:
             await h.aclose()
@@ -371,6 +376,18 @@ def create_app(*, settings: Any = None) -> FastAPI:
                 "note": f"前端未构建（没找到 {paths.rel_to_root(dist)}）；开发时用 Vite dev server（默认 5173）",
                 "api": f"{API_PREFIX}/docs",
             }
+
+    # 根路径短链跳转（F-G21，SPEC-14 §0 D4）：只读 302 + 计数，不经 /api 前缀
+    @app.get("/s/{code}", include_in_schema=False)
+    async def _shortlink_redirect(code: str) -> Any:
+        from fastapi.responses import RedirectResponse
+
+        from .shortlinks import service
+
+        target = service.hit(code)
+        if target is None:
+            raise NotFound("短链不存在或已失效", detail={"code": code})
+        return RedirectResponse(target, status_code=302)
 
     return app
 

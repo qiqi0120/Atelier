@@ -1,6 +1,6 @@
 """CLI 测试（SPEC-01 §11）。
 
-doctor 的验收标准是「**17 项，每项给具体值，不许只说通过**」，所以这里对
+doctor 的验收标准是「**18 项，每项给具体值，不许只说通过**」（M5 起 17→18：F-I5 local_agents，SPEC-15 §3），所以这里对
 「数量」「key 唯一」「value 非空」「状态合法」逐条断言，而不是只看它能跑完。
 """
 
@@ -16,13 +16,13 @@ from atelier.launcher import is_port_free, prepare
 
 
 class TestDoctor:
-    def test_exactly_seventeen_checks(self) -> None:
-        assert cli.DOCTOR_CHECK_COUNT == 17
-        assert len(cli.CHECKS) == 17
+    def test_exactly_eighteen_checks(self) -> None:
+        assert cli.DOCTOR_CHECK_COUNT == 18
+        assert len(cli.CHECKS) == 18
 
     def test_every_check_has_a_value(self, atelier_root: Path, capsys: pytest.CaptureFixture) -> None:
         checks = cli.check_all()
-        assert len(checks) == 17
+        assert len(checks) == 18
         for c in checks:
             assert c.value.strip(), f"{c.key} 只给了状态没给具体值（PRD 原则四）"
             assert c.status in (cli.OK, cli.WARN, cli.FAIL)
@@ -32,11 +32,12 @@ class TestDoctor:
         assert len(set(keys)) == len(keys)
 
     def test_每项都覆盖了约定的检查维度(self) -> None:
-        """SPEC-00 §3 要求的 17 项，逐项对得上。"""
+        """SPEC-00 §3 的 17 项 + M5 F-I5 增的 local_agents（SPEC-15 §3），逐项对得上。"""
         assert {key for key, _, _ in cli.CHECKS} == {
             "python", "node", "ffmpeg", "chromium", "disk", "output_dirs",
             "channels", "tts", "cors", "csrf", "secret_scan", "credentials",
             "session_store", "db", "git", "port", "browser_session",
+            "local_agents",
         }
 
     def test_secret_scan_self_probe_detects_fake_key(self, atelier_root: Path) -> None:
@@ -87,22 +88,22 @@ class TestDoctor:
         for d in ("outputs", "profiles", "var", "var/sessions"):
             assert (atelier_root / d).is_dir()
 
-    def test_report_output_has_17_lines_with_values(
+    def test_report_output_has_18_lines_with_values(
         self, atelier_root: Path, capsys: pytest.CaptureFixture
     ) -> None:
         cli.run_doctor()
         out = capsys.readouterr().out
-        assert "17 项" in out
-        for i in range(1, 18):
-            assert f"{i:2d}/17" in out, f"第 {i} 项没输出"
+        assert "18 项" in out
+        for i in range(1, 19):
+            assert f"{i:2d}/18" in out, f"第 {i} 项没输出"
         assert "[OK   ]" in out or "[WARN ]" in out or "[FAIL ]" in out
 
     def test_json_output_shape(self, atelier_root: Path, capsys: pytest.CaptureFixture) -> None:
         cli.run_doctor(as_json=True)
         data = json.loads(capsys.readouterr().out)
-        assert data["total"] == 17
-        assert len(data["checks"]) == 17
-        assert data["ok"] + data["warn"] + data["fail"] == 17
+        assert data["total"] == 18
+        assert len(data["checks"]) == 18
+        assert data["ok"] + data["warn"] + data["fail"] == 18
         assert all(c["value"] for c in data["checks"])
         assert all({"key", "label", "status", "value"} <= set(c) for c in data["checks"])
 
@@ -268,7 +269,7 @@ class TestMain:
     def test_main_dispatches_doctor(self, atelier_root: Path, capsys: pytest.CaptureFixture) -> None:
         rc = cli.main(["doctor", "--json"])
         assert rc in (0, 1)
-        assert json.loads(capsys.readouterr().out)["total"] == 17
+        assert json.loads(capsys.readouterr().out)["total"] == 18
 
     def test_main_help_exits_cleanly(self) -> None:
         with pytest.raises(SystemExit) as ei:

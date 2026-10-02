@@ -4,6 +4,7 @@
    ========================================================================== */
 
 import { api, request } from '@/lib/api'
+import type { GateReportT } from '@/lib/gates'
 
 export type PlatformKey = 'xhs' | 'dy' | 'gzh'
 export type PublishStatus = 'pending' | 'adapting' | 'ready' | 'publishing' | 'sent' | 'failed'
@@ -127,6 +128,27 @@ export type PublishRecord = {
   dry_run: boolean
 }
 
+/** F-G20 定时发布调度器状态（SPEC-14 §1.2）。notice 含 dry-run 诚实说明。 */
+export type SchedulerStatus = {
+  enabled: boolean
+  interval_seconds: number
+  due_count: number
+  last_tick: string
+  running: boolean
+  now: string
+  notice: string
+}
+
+/** F-G19 平台优化建议（AI，不落库）。502=AI 违约 / 422=GateBlocked。 */
+export type OptimizeResult = {
+  platform: string
+  titles: string[]
+  tags: string[]
+  timing: string
+  notes: string[]
+  gate_report: GateReportT
+}
+
 /* ------------------------------------------------------------------ 端点 */
 
 export const publishApi = {
@@ -209,6 +231,15 @@ export const publishApi = {
 
   submitSms: (recordId: string, code: string) =>
     api.post<{ accepted: boolean; notice: string }>(`/publish/sms/${recordId}`, { code }),
+
+  /** F-G20 调度器状态：页面加载拉一次即可 */
+  scheduler: () => api.get<SchedulerStatus>('/publish/scheduler'),
+
+  /** F-G19 平台优化建议：AI 生成，门禁后返回、不落库 */
+  optimize: (body: { platform: string; title: string; body: string; profile_id?: string }) =>
+    api.post<OptimizeResult>('/publish/optimize', body, {
+      headers: { 'Content-Type': 'application/json' },
+    }),
 }
 
 /** 预检项 → 前端上色（UI-SPEC 规则 17：硬门禁红 / 软提醒琥珀 / 通过绿） */

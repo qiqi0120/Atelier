@@ -92,7 +92,7 @@ class TestSchemaV6:
         names = set(db.table_names())
         for t in ("subscriptions", "feed_items", "hot_entries", "hot_digests", "algorithm_notes"):
             assert t in names
-        assert db.schema_version() == 6
+        assert db.schema_version() == 8  # M5 起 v8（归因域 3 表，SPEC-15）
 
     def test_migration_v5_to_v6_keeps_old_data(self, atelier_root: Any) -> None:
         """老库（v5）升级到 v6：新表出现、老数据保留。"""
@@ -108,7 +108,7 @@ class TestSchemaV6:
         db.reset_conn()
         applied = db.migrate()
         assert "v6" in applied
-        assert db.schema_version() == 6
+        assert db.schema_version() == 8  # M5 起 v8（归因域 3 表，SPEC-15）
         with db.db_session(commit=False) as c:
             assert c.execute("SELECT title FROM topics WHERE id='t-old'").fetchone()[0] == "老选题"
             assert c.execute(

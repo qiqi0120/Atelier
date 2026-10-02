@@ -10,6 +10,8 @@ export type PlatformPickerProps = {
   adapting: boolean
   onToggle: (p: PlatformKey) => void
   children?: React.ReactNode
+  /** 头部操作区追加项（F-G19「优化建议」入口挂在适配结果/变体区域） */
+  extraActions?: React.ReactNode
 }
 
 /**
@@ -25,14 +27,18 @@ export function PlatformPicker({
   adapting,
   onToggle,
   children,
+  extraActions,
 }: PlatformPickerProps) {
   return (
     <Card
       title="平台适配"
       actions={
-        <Chip tone="outline" className="adapt-state">
-          {adapting ? `适配中 · ${generated}/${platforms.length}` : `已生成 ${generated} / ${platforms.length}`}
-        </Chip>
+        <>
+          <Chip tone="outline" className="adapt-state">
+            {adapting ? `适配中 · ${generated}/${platforms.length}` : `已生成 ${generated} / ${platforms.length}`}
+          </Chip>
+          {extraActions}
+        </>
       }
     >
       <div className="stack" style={{ gap: 8 }}>

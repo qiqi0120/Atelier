@@ -43,7 +43,9 @@ __all__ = [
 #: topics / topic_scores 为 M2-1 选题域补的第 11、12 张（见 _apply_v3，SPEC-08 §1）；
 #: calendar_events 为 M2-2 日历域补的第 13 张（见 _apply_v4，SPEC-09 §1）；
 #: subscriptions / feed_items / hot_entries / hot_digests / algorithm_notes
-#: 为 M2-3b 发现域补的第 14~18 张（见 _apply_v6，SPEC-12 §1）。
+#: 为 M2-3b 发现域补的第 14~18 张（见 _apply_v6，SPEC-12 §1）；
+#: account_snapshots / content_metrics / roi_entries
+#: 为 M5 归因域补的第 20~22 张（见 _apply_v8，SPEC-15 §1）。
 TABLE_NAMES: tuple[str, ...] = (
     "profiles",
     "memories",
@@ -63,9 +65,13 @@ TABLE_NAMES: tuple[str, ...] = (
     "hot_entries",
     "hot_digests",
     "algorithm_notes",
+    "shortlinks",
+    "account_snapshots",
+    "content_metrics",
+    "roi_entries",
 )
 
-SCHEMA_VERSION = 6
+SCHEMA_VERSION = 8
 
 _DDL: tuple[str, ...] = (
     """CREATE TABLE IF NOT EXISTS profiles (
@@ -167,6 +173,16 @@ _EXPECTED: dict[str, tuple[str, ...]] = {
     "algorithm_notes": (
         "id", "platform", "noted_at", "change", "impact", "source", "created_at", "updated_at",
     ),
+    "shortlinks": ("code", "target", "note", "hits", "created_at"),
+    "account_snapshots": (
+        "id", "platform", "captured_at", "followers", "likes_total", "works_total",
+        "note", "created_at", "updated_at",
+    ),
+    "content_metrics": (
+        "id", "record_id", "platform", "views", "likes", "comments", "shares",
+        "collected_at", "note", "created_at", "updated_at",
+    ),
+    "roi_entries": ("id", "record_id", "project", "hours", "amount", "note", "created_at"),
 }
 
 #: 补列时的列定义（SQLite 不允许裸 ADD COLUMN 带 PRIMARY KEY，这里只列可选补的普通列）
@@ -371,6 +387,77 @@ def _apply_v6(conn: sqlite3.Connection) -> None:
     )
 
 
+def _apply_v7(conn: sqlite3.Connection) -> None:
+    """v7 · 短链表（M4，SPEC-14 §0 D4）。
+
+    ``code`` 是 8 位 [a-z0-9] 随机码，作主键；``hits`` 在 302 跳转时 +1
+    （本地追踪闭环，无公网域，如实标注）。
+    """
+    conn.execute(
+        """CREATE TABLE IF NOT EXISTS shortlinks (
+  code TEXT PRIMARY KEY,
+  target TEXT NOT NULL,
+  note TEXT,
+  hits INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL
+)"""
+    )
+
+
+def _apply_v8(conn: sqlite3.Connection) -> None:
+    """v8 · 归因域 3 张表（M5，SPEC-15 §1）。
+
+    **诚实原则的代码事实**（SPEC-15 §0 D1）：平台数据无公开 API，三张表全部
+    由用户手工录入——快照（定期抄创作中心数字）、单条内容表现、投入台账。
+    ``content_metrics.record_id`` 带 ON DELETE CASCADE（删发布记录清其指标）；
+    ``roi_entries.record_id`` 刻意不设外键（投入可先于发布记录存在，SPEC-15 §7）。
+    """
+    conn.execute(
+        """CREATE TABLE IF NOT EXISTS account_snapshots (
+  id TEXT PRIMARY KEY,
+  platform TEXT NOT NULL,
+  captured_at TEXT NOT NULL,      -- YYYY-MM-DD（零填充，可比可排序）
+  followers INTEGER DEFAULT 0,
+  likes_total INTEGER DEFAULT 0,
+  works_total INTEGER DEFAULT 0,
+  note TEXT,
+  created_at TEXT, updated_at TEXT
+)"""
+    )
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_snapshots_platform ON account_snapshots(platform, captured_at)"
+    )
+    conn.execute(
+        """CREATE TABLE IF NOT EXISTS content_metrics (
+  id TEXT PRIMARY KEY,
+  record_id TEXT NOT NULL REFERENCES publish_records(id) ON DELETE CASCADE,
+  platform TEXT NOT NULL,
+  views INTEGER DEFAULT 0,
+  likes INTEGER DEFAULT 0,
+  comments INTEGER DEFAULT 0,
+  shares INTEGER DEFAULT 0,
+  collected_at TEXT NOT NULL,     -- YYYY-MM-DD
+  note TEXT,
+  created_at TEXT, updated_at TEXT
+)"""
+    )
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_metrics_record ON content_metrics(record_id, collected_at)"
+    )
+    conn.execute(
+        """CREATE TABLE IF NOT EXISTS roi_entries (
+  id TEXT PRIMARY KEY,
+  record_id TEXT,                 -- 可空且无外键：投入可先于发布记录存在
+  project TEXT,
+  hours REAL DEFAULT 0,
+  amount REAL DEFAULT 0,
+  note TEXT,
+  created_at TEXT
+)"""
+    )
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_roi_created ON roi_entries(created_at)")
+
+
 #: 版本号 → 迁移步骤。新增版本时只往这里加一项，不要动老步骤（SPEC-01 §7 幂等）。
 _MIGRATIONS: dict[int, Callable[[sqlite3.Connection], None]] = {
     1: _apply_v1,
@@ -379,6 +466,8 @@ _MIGRATIONS: dict[int, Callable[[sqlite3.Connection], None]] = {
     4: _apply_v4,
     5: _apply_v5,
     6: _apply_v6,
+    7: _apply_v7,
+    8: _apply_v8,
 }
 
 _local = threading.local()

@@ -567,7 +567,8 @@ class TestPublishApi:
         assert r.status_code == 200
         data = r.json()
         keys = {p["platform"] for p in data["platforms"]}
-        assert keys == {"xhs", "dy", "gzh"}
+        # M4 起共 7 平台（SPEC-14 §0 D1/D2）
+        assert keys == {"xhs", "dy", "gzh", "ks", "zhihu", "bilibili", "wcs"}
         dy = next(p for p in data["platforms"] if p["platform"] == "dy")
         assert dy["body_max"] == 55
         assert dy["title_max"] == 55
