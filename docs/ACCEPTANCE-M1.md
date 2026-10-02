@@ -113,10 +113,11 @@ warn   ✗未过  时机建议
 | **扫码登录**未做 | 同上 | M4（`platform_creds` 表与真校验接口已建） |
 | 短信验证码 | 只到状态机 + UI | M4 |
 | 排期发布 | `adapter.schedule` 已留签名 | M4 |
-| 热点抓取 / 选题库 / 日历 / 数据复盘 | 属 M2 | 路由已注册、占位页就位 |
+| 热点抓取 / 选题库 / 日历 / 数据复盘 | 属 M2 | 路由已注册、占位页就位，切分见 `plans/PLAN-M2.md` |
 | 视频/音频生成 | 属 M3 | `one-video`/`aigc-image` 标 v2 并演示缺密钥禁用 |
-| 技能运行记录在进程内 | 重启丢失（产物仍在文件系统） | 需落 `core/db.py`，未越界改地基 |
+| ~~技能运行记录在进程内~~ | **已还**（2026-10-02） | 落 `skill_runs` 表，schema v2，详见 §9 |
 | `cover_ratio` 按文件名判定 | 未读图片二进制 | 需内容库域协作 |
+| 真实 SDK 未跑通 | **仍欠**，见 §9 | 验证脚本已就绪，等真 `ANTHROPIC_API_KEY` |
 
 ---
 
@@ -124,7 +125,7 @@ warn   ✗未过  时机建议
 
 ```bash
 # 环境（已就绪）
-uv venv --python 3.12 && uv pip install -e ".[dev]"
+uv venv --python 3.12 && uv pip install -e . --group dev
 cd web && pnpm install
 
 # 全量测试
@@ -146,7 +147,107 @@ ATELIER_MOCK=1 .venv/bin/python scripts/smoke_m1.py
 ## 8. 下一批建议（M2）
 
 按 `SPEC-00` §3 的批次规则，M1 出口达标即可开 M2（策划与发现增强）。
+
+**切分方案见 `plans/PLAN-M2.md`**（Mr Yu 2026-10-02 选定「按链路切 3 个子批」：
+①选题 → ②日历与热点 → ③发现与分析），本轮不执行。
+
 开批前建议先做两件小事：
 
-1. **把技能运行记录落库**（`runs` 表）—— 现在重启丢记录，是 M1 唯一的架构性欠账
-2. **补一个真 API key 跑一次真实 Claude Agent SDK 对话** —— 目前所有对话走 MockHarness，真实流式/思考流/中断只在契约层验证过，未在真模型上跑通
+1. ~~把技能运行记录落库（`runs` 表）~~ —— ✅ 已完成，见 §9
+2. ~~补一个真 API key 跑一次真实 Claude Agent SDK 对话~~ —— ⏳ 验证脚本就绪，等 key，见 §9
+
+---
+
+## 9. M1 收尾轮（2026-10-02）
+
+### 9.1 欠账① 技能运行记录落库 —— 已还
+
+| 项 | 内容 |
+|---|---|
+| 落点 | `skill_runs` 表（`core/db.py` schema **v1 → v2**），spec 已先改（SPEC-01 §7） |
+| 存储层 | 新增 `atelier/server/skills/store.py`：`start_run` / `finish_run` / `get_run` / `list_runs` |
+| API | `GET /api/skills/runs/{id}` 内存未命中时回库查；新增 `GET /api/skills/runs` 历史列表（按技能/项目/状态过滤） |
+| 设计 | 写穿缓存 + 库为唯一真相源；**落库失败不拖垮运行**（产物已落盘），但 `log.exception` 大声留痕 |
+| 测试 | 新增 `atelier/tests/test_skill_runs.py` **12 个用例**，含 v1→v2 真实迁移路径 |
+| 总测试 | **684 passed**（671 + 13）· `ruff check .` All checks passed · `doctor` 报 `schema v2 · 10/10 张表` |
+
+**实证（真服务进程 kill -9 后重启）**：
+
+```
+跑 xhs-card → run_id=ddc5cb70… status=done 产物=4
+kill -9 → 重启 → GET 同一条：status=done 产物=4 created_at 2026-10-02T09:43:43 门禁报告=有
+GET /api/skills/runs?skill_id=xhs-card → 命中 1 条
+```
+
+### 9.2 收尾轮修的真 bug
+
+| # | 问题 | 影响 | 修法 |
+|---|---|---|---|
+| 1 | **`uv pip install -e ".[dev]"` 从来跑不通** | 验收报告 §7 的复现命令是坏的：flat-layout 下 setuptools 扫到 `web/prd/plans/specs/design` 六个顶层包直接拒绝构建 | `pyproject.toml` 显式 `[tool.setuptools.packages.find] include=["atelier*"]`；复现命令改 `uv pip install -e . --group dev`（dev 在 `dependency-groups` 里，`.[dev]` 装不到） |
+| 2 | **`wait=True` 每次同步运行产生 2 条记录** | 入口 `run_id` 与 `runner` 内部自生成的 `run_id` 是两个值，`start_run` 写一行、`finish_run` 又写一行 | 同步分支补 `r.run_id = run_id`，与异步分支同口径（同 M1 集成 bug #6 的同类） |
+| 3 | **`ThinkingConfigAdaptive()` 返回空 dict `{}`** | 它是 TypedDict（类型）不是类。SDK 读 `t["type"]` → `KeyError`，**每条真实对话 connect 即崩** | 改字典字面量 `{"type": "adaptive"}`；兼容判据改为看 `ClaudeAgentOptions` 有无 `thinking` 字段 |
+| 4 | **`async for x in asyncio.wait_for(gen, t)`** | `wait_for` 返回协程不是异步迭代器 → `TypeError`，**每条真实对话第一轮即崩** | 换 `_aiter_with_total_timeout()`，保持「整轮总超时」语义，只用 3.10 API |
+| 5 | **`client.interrupt()` 是 async，代码当同步调** | 协程从未 await → SDK 侧中断**从未发生**，静默退化成「只置 stop 标记 + 0.5s 后 cancel」，实测 7.5s 才停（**出口标准 3 的直接死因**） | 按 `inspect.isawaitable()` 兼容处理，async 则 await。**实测 7.5s → 2.51s** |
+| 6 | **`UserMessage` 被整个丢弃，工具结果全丢** | SDK 把 `ToolResultBlock` 装在 `UserMessage` 里回传，而映射函数对 `UserMessage` 直接 `return out` → 前端只收得到 TOOL_CALL、永远等不到 TOOL_RESULT，门禁块一直转圈。**真机实测：调了 3 次门禁 tool，收到 0 条 tool_result** | `UserMessage` 分支单独解析 `ToolResultBlock` |
+| 7 | **同源写请求全被 403（打包自部署不可用）** | `cors_origins` 默认只有 Vite dev server 的 :5173。`atelier web` 自己 serve 构建好的 SPA 时，页面与 API **同源**（:7300），所有写请求都撞白名单 → **对话发不出去、技能跑不了、画像存不进去**。M1 验收时全程走 `pnpm dev`（:5173），这条路径从未被验证 | ① `CrossSiteWriteMiddleware._is_same_origin()`：Origin 与请求自身 `host:port` 相同即同源放行（不含跨站风险，且 `Sec-Fetch-Site` 本就是 `same-origin`）；② `Settings.effective_cors_origins()` 收敛成**单一来源**，CORS / 跨站写 / `/api/health` / doctor 都读它；③ `launch_web` 把 CLI 的 `--host/--port` 同步回 settings（原先 `/api/health` 一直报 8000） |
+| 8 | **正文完整出现两次** | 开了 `include_partial_messages=True` 后，SDK **先**逐 token 发 `StreamEvent`，末尾再用一条 `AssistantMessage` 把同一份正文/思考**整块重发**。两个源都映射 → 每段话在界面上出现两遍。**真机实测：短增量累计 154 字，随后又来 32 + 122 = 154 字** | `events_from_message(..., streamed=)` 标记；本轮已收到增量时跳过重复的 Text/Thinking 块，**`ToolUseBlock` 保留**（工具入参没有 StreamEvent 对应物） |
+
+> **8 个 bug 里有 6 个（3/4/5/6/7/8）藏在 M1 从未真实验证过的路径上**——
+> 前 5 个在真 harness 执行路径（被 MockHarness 完全绕开），#7 在打包自部署路径
+> （被 Vite dev server 完全绕开）。M1 的 671 个测试全绿，
+> 但**没有任何一个测试让 SDK 真正构造过一次命令行、处理过一条真实形状的
+> `UserMessage`、以「后端自己 serve 前端」的形态发过一次写请求，
+> 或处理过「增量 + 整块重发」这种双源序列**。
+>
+> 已补四道防线：
+> - `test_thinking_config_survives_sdk_command_builder` 直接调用 SDK 自己的 `_build_command()`
+> - `test_tool_result_in_user_message_is_not_dropped` 用 **UserMessage 真实形状**构造消息
+> - `test_own_origin_write_allowed` / `test_same_host_other_port_still_blocked` 锁死同源判定
+> - `test_assistant_text_not_duplicated_when_streamed` 锁死去重
+>
+> 旧用例 `test_tool_use_and_result` 把 `ToolResultBlock` 塞进 `AssistantMessage`——
+> 那不是 SDK 真实产生的形状，正是 bug #6 活下来的原因。
+
+### 9.3 欠账② 真实 SDK 验证 —— 管道层已验实，Claude 专有行为未验
+
+**凭证说明（重要）**：本机 `~/.claude/settings.json` 里**不是官方 Anthropic key**，
+而是智谱 GLM 的 Anthropic 兼容端点（`open.bigmodel.cn/api/anthropic`，模型 `glm-5.3-flash`）。
+因此下表结论限定为「**对着 Anthropic 兼容端点验证管道层**」，
+**不等于**「真实 Claude 已跑通」，措辞不得含糊。
+
+跑法：`export ANTHROPIC_API_KEY=… && .venv/bin/python scripts/verify_real_sdk.py`（支持 `--only c5 c6`）。
+已确认：bundled CLI 是自包含 Mach-O arm64 二进制（225MB），**不需要 Node.js**。
+
+| # | 检查 | 结果 | 实测 |
+|---|---|---|---|
+| 1 | health() 认证 | ✅ | `claude_sdk · harness 就绪`，5 个 MCP tool 已注册 |
+| 2 | 错误密钥报错 | ⚠️ 不适用 | 父环境有 `ANTHROPIC_AUTH_TOKEN`，代理优先用它，注入的坏 key 送不出去（**测试装置限制，非代码问题**） |
+| 3 | 真流式增量 | ✅ | **228 个 text_delta / 81.4s / 正文 772 字**，真实花费 $0.183 |
+| 4 | 独立思考流 | ✅ | `thinking_start=1` `thinking_delta=711` |
+| 5 | **门禁 tool 真被模型调用** | ✅ | `atelier_gate_run`×1 + `atelier_artifact_write`×3，**4 条 tool_result**（修复前 0 条） |
+| 6 | 中断 2s 内生效 | ✅ | 发起 2.50s → 实际停 **2.51s**（修复前 7.5s） |
+| 7 | 多轮续接 | ✅ | 第二轮答出「紫罗兰七号」，`resume` 生效 |
+| 8 | 画像注入 | ✅ | 回答明显带画像语气与受众设定 |
+
+**第 5 条是 M0 的核心主张**（门禁做成 in-process MCP tool，agent 落盘前**必须**调用，
+不是提示词约定）——这是它第一次在真模型上被证伪不了。
+
+### 9.4 顺带查出的门禁合规缺口（**未修，待决策**）
+
+验证中让模型写含「国家级」「最有效」的文案，门禁**没有拦**。查证后确认：
+
+| 输入 | 拦截 | 说明 |
+|---|---|---|
+| 「全网第一 / 100%有效」 | ✅ | 词表内 |
+| 「三天根治 / 药到病除」 | ✅ | 医疗功效表 |
+| 「我最好的朋友推荐」 | ✅ 正确放过 | 歧义表达，刻意走 `_PATTERNS` 避免误杀 |
+| 「全网最好用」 | ✅ | 上下文正则生效 |
+| **「国家级 / 最高级 / 最有效」** | ❌ **漏** | 见下 |
+
+门禁**逻辑本身是好的**，缺的是词表覆盖：`国家级`/`最高级` 属《广告法》第九条
+**无条件禁止**的用语（零歧义，加进硬表不会误杀）；`最有效` 有歧义，
+应走 `_PATTERNS` 的上下文规则而不是硬表。
+
+> 为什么 M1 没发现：验收脚本里没有一条断言覆盖这三个词，且 M1 从未用真模型产出过
+> 含此类用语的文案去撞门禁。**本轮未擅自改动词表**——BLOCK 级门禁加词会直接
+> 增加误杀面，属产品决策，需 Mr Yu 确认。
