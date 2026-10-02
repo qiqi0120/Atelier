@@ -1,4 +1,4 @@
-import { Archive, Pencil } from 'lucide-react'
+import { Archive, Pencil, Trash2 } from 'lucide-react'
 import { Button, Chip } from '@/components'
 import type { Session } from '@/lib/types'
 import type { SessionGroup } from './types'
@@ -13,6 +13,7 @@ export type SessionListProps = {
   onNew: () => void
   onRename: (s: Session) => void
   onArchive: (s: Session) => void
+  onDelete: (s: Session) => void
   onOpenProfile?: () => void
 }
 
@@ -36,6 +37,7 @@ export function SessionList({
   onNew,
   onRename,
   onArchive,
+  onDelete,
   onOpenProfile,
 }: SessionListProps) {
   return (
@@ -94,6 +96,20 @@ export function SessionList({
                     }}
                   >
                     <Archive size={12} />
+                  </button>
+                  {/* F-B8 要求「新建/重命名/归档/**删除**」四件套齐全。
+                      后端 DELETE /api/chat/sessions/{id} 与 useChat.deleteSession
+                      早就实现好了，但这里一直没渲染按钮——spec 标了 ✅ 而用户根本删不掉。 */}
+                  <button
+                    type="button"
+                    title="删除"
+                    className="danger"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      onDelete(s)
+                    }}
+                  >
+                    <Trash2 size={12} />
                   </button>
                 </div>
               </div>

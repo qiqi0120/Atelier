@@ -97,7 +97,14 @@ function asArtifacts(data: Record<string, unknown>): ArtifactView[] {
 export function reducer(state: ChatState, action: Action): ChatState {
   switch (action.type) {
     case 'sessions/loaded':
-      return { ...state, sessions: action.sessions, groups: action.groups, loading: false }
+      // 后端少给 groups 时就地 regroup，别把 undefined 写进 state——
+      // 那样后面任何 state.groups.map(...) 都会炸，而症状离病因很远。
+      return {
+        ...state,
+        sessions: action.sessions,
+        groups: action.groups ?? regroup(action.sessions),
+        loading: false,
+      }
 
     case 'session/created':
       return { ...state, sessions: [action.session, ...state.sessions], sessionId: action.session.id }

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
 import { useState } from 'react'
-import { fireEvent, render, screen, waitFor, act } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, act, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { Composer } from '@/features/chat/Composer'
 import { QuestionCard } from '@/features/chat/QuestionCard'
@@ -401,6 +401,59 @@ describe('ChatPage 冲突处理（F-B12）', () => {
   })
   afterEach(() => {
     vi.unstubAllGlobals()
+  })
+
+  it('F-B8：hover 出删除按钮，二次确认 + 逐字输入标题后才真删', async () => {
+    const sessionA = { id: 's_del', title: '要删掉的会话', profile_id: null, created_at: '', updated_at: '', archived: false, last_turn_id: null }
+    const calls: string[] = []
+
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = String(input)
+        calls.push(`${init?.method ?? 'GET'} ${url}`)
+        if (url.includes('/messages')) {
+          return jsonRes({ items: [], questions: [], count: 0, total: 0, has_more: false, session_id: 's_del' })
+        }
+        if (url.includes('/confirm-token')) return jsonRes({ token: 'tok_1', action: 'delete-session', id: 's_del' }, 200)
+        if (init?.method === 'DELETE') return jsonRes({ session_id: 's_del', removed: true }, 200)
+        if (url.endsWith('/api/chat/sessions') && init?.method === 'POST') {
+          return jsonRes({ session: { ...sessionA, id: 's_new', title: '新会话' } }, 200)
+        }
+        if (url.endsWith('/api/chat/sessions')) {
+          return jsonRes({ sessions: [sessionA], groups: [{ key: 'today', label: '今天', items: [sessionA] }], count: 1 })
+        }
+        return jsonRes({}, 200)
+      }),
+    )
+
+    render(
+      <MemoryRouter>
+        <ChatPage />
+      </MemoryRouter>,
+    )
+
+    // 1) 列表项上真的有删除按钮（F-B8 四件套：新建/重命名/归档/删除）
+    const del = await screen.findByTitle('删除')
+    expect(del).toBeInTheDocument()
+
+    // 2) 点它只弹确认框，不直接删
+    fireEvent.click(del)
+    await screen.findByText('删除这个会话')
+    expect(calls.some((c) => c.startsWith('DELETE'))).toBe(false)
+
+    // 3) 确认按钮要逐字输入标题才解锁（ConfirmDialog requireTyping）
+    //    页面里有两个 textbox（底部输入框 + 对话框的逐字输入框），必须限定在对话框内查
+    const dlg = await screen.findByRole('dialog')
+    const okBtn = within(dlg).getByRole('button', { name: /确认删除/ })
+    expect(okBtn).toBeDisabled()
+    fireEvent.change(within(dlg).getByRole('textbox'), { target: { value: '要删掉的会话' } })
+    await waitFor(() => expect(within(dlg).getByRole('button', { name: /确认删除/ })).toBeEnabled())
+    fireEvent.click(within(dlg).getByRole('button', { name: /确认删除/ }))
+
+    // 4) 真的发了 DELETE，且带 confirm token
+    await waitFor(() => expect(calls.some((c) => c.startsWith('DELETE'))).toBe(true))
+    expect(calls.find((c) => c.startsWith('DELETE'))).toContain('confirm=tok_1')
   })
 
   it('第二个窗口撞上 409 时自动新建会话并重发', async () => {

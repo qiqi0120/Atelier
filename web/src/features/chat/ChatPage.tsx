@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { toast } from '@/components'
+import { ConfirmDialog, toast } from '@/components'
 import { useAtelier } from '@/lib/store'
 import type { Attachment, Session } from '@/lib/types'
 import { Composer } from './Composer'
@@ -28,6 +28,8 @@ export function ChatPage() {
   const [text, setText] = useState('')
   const [attachments, setAttachments] = useState<Attachment[]>([])
   const booted = useRef(false)
+  /** 待确认删除的会话（F-B8：删会话是破坏性操作，必须二次确认 + 逐字输入标题） */
+  const [pendingDelete, setPendingDelete] = useState<Session | null>(null)
 
   const onSessionBusy = useCallback(() => {
     toast.warn('该会话正在其他窗口生成，已开新会话')
@@ -99,6 +101,21 @@ export function ChatPage() {
     [chat, state.sessionId],
   )
 
+  const onDelete = useCallback(
+    async (s: Session) => {
+      await chat.deleteSession(s.id)
+      toast.ok(`已删除「${s.title}」`)
+      setPendingDelete(null)
+      // 删的是当前会话 → 页面会停在一个不存在的会话上，顺带切走
+      if (s.id === state.sessionId) {
+        const rest = chat.state.sessions.filter((x) => x.id !== s.id && !x.archived)
+        if (rest.length) await chat.selectSession(rest[0].id)
+        else await chat.newSession()
+      }
+    },
+    [chat, state.sessionId],
+  )
+
   return (
     <div className="chat-wrap">
       <SessionList
@@ -110,6 +127,7 @@ export function ChatPage() {
         onNew={() => void chat.newSession()}
         onRename={(s) => void onRename(s)}
         onArchive={(s) => void onArchive(s)}
+        onDelete={(s) => setPendingDelete(s)}
         onOpenProfile={() => navigate('/profile')}
       />
 
@@ -139,6 +157,24 @@ export function ChatPage() {
           onRemoveAttachment={(id) => setAttachments((prev) => prev.filter((a) => a.id !== id))}
         />
       </div>
+
+      {/* F-B8 删除会话：二次确认 + 逐字输入标题才解锁（与内容库 DeleteDialog 同一套规矩） */}
+      <ConfirmDialog
+        open={pendingDelete !== null}
+        danger
+        title="删除这个会话"
+        sub="会话里的全部消息和这一轮的生成记录都会一起删掉，不进回收站。"
+        okText="确认删除"
+        requireTyping={pendingDelete?.title ?? ''}
+        onCancel={() => setPendingDelete(null)}
+        onConfirm={() => {
+          if (pendingDelete) void onDelete(pendingDelete)
+        }}
+      >
+        <p className="help">
+          想留着的话先「归档」——归档只是从列表收起来，随时能取消。
+        </p>
+      </ConfirmDialog>
     </div>
   )
 }
