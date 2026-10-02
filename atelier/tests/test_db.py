@@ -1,6 +1,6 @@
 """SPEC-01 §7 · SQLite schema 测试。
 
-验收点：9 张表齐全、``foreign_keys`` 真的开着（不是默认关）、迁移幂等。
+验收点：全部业务表齐全、``foreign_keys`` 真的开着（不是默认关）、迁移幂等。
 """
 
 from __future__ import annotations
@@ -16,7 +16,7 @@ from atelier.server.core import db
 EXPECTED_TABLES = {
     "profiles", "memories", "sessions", "messages", "artifacts",
     "publish_drafts", "publish_records", "platform_creds", "settings",
-    "skill_runs",
+    "skill_runs", "topics", "topic_scores",  # v3：M2-1 选题域（SPEC-08 §1）
 }
 
 
@@ -43,7 +43,8 @@ class TestSchema:
 
     def test_schema_version_recorded(self, atelier_root: Path) -> None:
         conn = db.init_db()
-        assert db.schema_version(conn) == db.SCHEMA_VERSION == 2
+        # M2-1 起为 v3（topics / topic_scores，SPEC-08 §1）；升级版本时同步改这里
+        assert db.schema_version(conn) == db.SCHEMA_VERSION == 3
 
     def test_migration_is_idempotent(self, atelier_root: Path) -> None:
         conn = db.init_db()

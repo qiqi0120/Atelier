@@ -100,9 +100,11 @@ def test_migration_v1_to_v2_adds_skill_runs(tmp_path: Path) -> None:
 
         applied = db.migrate(conn)
         assert "v2" in applied, applied
-        assert db.schema_version(conn) == 2
+        # migrate 一路升到当前最新版本（v3+），v2 这步本身必须发生
+        assert db.schema_version(conn) == db.SCHEMA_VERSION
         assert "skill_runs" in db.table_names(conn)
-        assert len(db.table_names(conn)) == 10
+        # v1 的 9 张 + v2 的 skill_runs + v3 的 topics/topic_scores
+        assert len(db.table_names(conn)) == 12
 
         # 老数据没被动过
         assert len(conn.execute("SELECT * FROM settings").fetchall()) == 0
@@ -113,10 +115,10 @@ def test_migration_v1_to_v2_adds_skill_runs(tmp_path: Path) -> None:
         conn.close()
 
 
-def test_migration_is_idempotent_at_v2(env: Path) -> None:
+def test_migration_is_idempotent_at_latest(env: Path) -> None:
     conn = db.init_db()
     assert db.migrate(conn) == []
-    assert db.schema_version(conn) == 2
+    assert db.schema_version(conn) == db.SCHEMA_VERSION
 
 
 # ---------------------------------------------------------------- 落库读库

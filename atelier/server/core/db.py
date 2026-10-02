@@ -39,7 +39,8 @@ __all__ = [
     "utcnow",
 ]
 
-#: SPEC-01 §7 的表清单。skill_runs 为 M1 收尾时补的第 10 张表（见 _apply_v2）。
+#: SPEC-01 §7 的表清单。skill_runs 为 M1 收尾时补的第 10 张表（见 _apply_v2）；
+#: topics / topic_scores 为 M2-1 选题域补的第 11、12 张（见 _apply_v3，SPEC-08 §1）。
 TABLE_NAMES: tuple[str, ...] = (
     "profiles",
     "memories",
@@ -51,9 +52,11 @@ TABLE_NAMES: tuple[str, ...] = (
     "platform_creds",
     "settings",
     "skill_runs",
+    "topics",
+    "topic_scores",
 )
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 
 _DDL: tuple[str, ...] = (
     """CREATE TABLE IF NOT EXISTS profiles (
@@ -125,6 +128,13 @@ _EXPECTED: dict[str, tuple[str, ...]] = {
         "stdout", "stderr", "returncode", "error", "missing_keys", "duration",
         "created_at", "updated_at",
     ),
+    "topics": (
+        "id", "profile_id", "title", "angle", "source", "source_ref",
+        "status", "decode", "created_at", "updated_at",
+    ),
+    "topic_scores": (
+        "id", "topic_id", "dims", "total", "verdict", "reason", "created_at",
+    ),
 }
 
 #: 补列时的列定义（SQLite 不允许裸 ADD COLUMN 带 PRIMARY KEY，这里只列可选补的普通列）
@@ -184,8 +194,44 @@ def _add_missing_columns(conn: sqlite3.Connection) -> list[str]:
     return added
 
 
+def _apply_v3(conn: sqlite3.Connection) -> None:
+    """v3 · 补 ``topics`` / ``topic_scores``（M2-1 选题域，SPEC-08 §1）。
+
+    选题池是 M2-1 矩阵输出与 M2-2 日历建议的公共落点（PLAN-M2 §2），
+    表本体先于这两个消费方冻结。
+    """
+    conn.execute(
+        """CREATE TABLE IF NOT EXISTS topics (
+  id TEXT PRIMARY KEY,
+  profile_id TEXT,
+  title TEXT NOT NULL,
+  angle TEXT,
+  source TEXT NOT NULL,
+  source_ref TEXT,
+  status TEXT NOT NULL,
+  decode TEXT,
+  created_at TEXT, updated_at TEXT
+)"""
+    )
+    conn.execute(
+        """CREATE TABLE IF NOT EXISTS topic_scores (
+  id TEXT PRIMARY KEY,
+  topic_id TEXT NOT NULL REFERENCES topics(id) ON DELETE CASCADE,
+  dims TEXT NOT NULL,
+  total INTEGER NOT NULL,
+  verdict TEXT NOT NULL,
+  reason TEXT,
+  created_at TEXT
+)"""
+    )
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_topics_profile ON topics(profile_id, status)")
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_topic_scores_topic ON topic_scores(topic_id, created_at)"
+    )
+
+
 #: 版本号 → 迁移步骤。新增版本时只往这里加一项，不要动老步骤（SPEC-01 §7 幂等）。
-_MIGRATIONS: dict[int, Callable[[sqlite3.Connection], None]] = {1: _apply_v1, 2: _apply_v2}
+_MIGRATIONS: dict[int, Callable[[sqlite3.Connection], None]] = {1: _apply_v1, 2: _apply_v2, 3: _apply_v3}
 
 _local = threading.local()
 _INIT_LOCK = threading.Lock()
