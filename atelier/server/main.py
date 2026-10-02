@@ -77,7 +77,8 @@ class CrossSiteWriteMiddleware(BaseHTTPMiddleware):
     1. ``Content-Type`` 在白名单里（默认只允许 ``application/json`` 与
        ``multipart/form-data``——后者是素材上传 PRD F-B2 必需；刻意**不允许**
        ``application/x-www-form-urlencoded``，那是经典 CSRF 载体）
-    2. ``Origin`` 存在时必须在 CORS 白名单里（``Origin: null`` 同样算可疑）
+    2. ``Origin`` 存在时必须在 CORS 白名单里，**或是本次请求自己的来源**（同源，见
+       :meth:`_is_same_origin`——``atelier web`` 自带 SPA 时页面与 API 同源）
     3. ``Sec-Fetch-Site`` 存在时必须在可信集合里（现代浏览器自带这层）
 
     没有 ``Origin`` 头时放行：本地工具（curl / CLI）不发送它，而真正的浏览器
@@ -125,7 +126,7 @@ class CrossSiteWriteMiddleware(BaseHTTPMiddleware):
                 )
 
         origin = (request.headers.get("origin") or "").strip()
-        if origin and origin not in self.allowed_origins:
+        if origin and origin not in self.allowed_origins and not self._is_same_origin(request, origin):
             return self._reject(request, reason="origin_not_allowed", got=origin, expect="见 CORS 白名单")
 
         site = (request.headers.get("sec-fetch-site") or "").strip().lower()
@@ -134,6 +135,26 @@ class CrossSiteWriteMiddleware(BaseHTTPMiddleware):
                                 expect=" / ".join(self.trusted_fetch_sites))
 
         return await call_next(request)
+
+    @staticmethod
+    def _is_same_origin(request: Request, origin: str) -> bool:
+        """``Origin`` 与本次请求自己的 ``host:port`` 相同 → **同源**，不是跨站写。
+
+        为什么要这条：``cors_origins`` 默认只列了 Vite 开发服务器
+        （``localhost:5173`` / ``127.0.0.1:5173``），那是「前端另起 dev server、
+        跨源调后端」的形态。但 ``atelier web`` 另一种主流用法是**自己 serve 构建好的
+        SPA**（默认 :8000 / 实跑 :7300），此时页面与 API 同源，所有写请求都会带着
+        ``Origin: http://127.0.0.1:7300`` 撞上白名单 → 全部 403
+        （对话发不出、技能跑不了、改画像存不进去）。
+
+        这条不放宽安全性：同源请求本来就**不可能**是别的网站发起的跨站写
+        （浏览器对跨源写会强制带目标站 Origin，且表单无法伪造），
+        且此时 ``Sec-Fetch-Site`` 本就是 ``same-origin``——已在可信集合里。
+        """
+        host = (request.headers.get("host") or "").strip()
+        if not host:
+            return False
+        return origin == f"{request.url.scheme}://{host}"
 
     def _reject(self, request: Request, *, reason: str, got: str, expect: str) -> JSONResponse:
         err = CrossSiteWriteBlocked(
@@ -245,9 +266,15 @@ def create_app(*, settings: Any = None) -> FastAPI:
     register_exception_handlers(app, on_internal=_log_internal)
 
     # 2) CORS：只放本地来源（PRD 13）
+    #    白名单带上**服务自己的地址**（见 Settings.effective_cors_origins）：
+    #    `atelier web` 会 serve 构建好的 SPA，页面与 API 同源，而默认 cors_origins
+    #    只有 Vite dev server 的 :5173。真正兜底的是
+    #    CrossSiteWriteMiddleware._is_same_origin（按请求实际 Host 判同源），
+    #    但配置本身也要如实，且三处（CORS / 跨站写 / health）必须是同一份值。
+    cors_origins = st.effective_cors_origins()
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=st.cors_origin_list(),
+        allow_origins=list(cors_origins),
         allow_credentials=False,
         allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
         allow_headers=["Content-Type", "Authorization", "X-Confirm-Token"],
@@ -258,7 +285,7 @@ def create_app(*, settings: Any = None) -> FastAPI:
     app.add_middleware(
         CrossSiteWriteMiddleware,
         allowed_content_types=st.allowed_write_content_types,
-        allowed_origins=st.cors_origins,
+        allowed_origins=cors_origins,
         trusted_fetch_sites=st.trusted_fetch_sites,
         enabled=not st.disable_csrf,
     )

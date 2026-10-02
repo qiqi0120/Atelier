@@ -52,10 +52,13 @@ class TestDoctor:
         assert c.status == cli.OK
         assert sys.version.split()[0] in c.value
 
-    def test_db_check_reports_nine_tables(self, atelier_root: Path) -> None:
+    def test_db_check_reports_all_tables(self, atelier_root: Path) -> None:
+        from atelier.server.core import db
+
         c = cli.check_db()
         assert c.status == cli.OK
-        assert "9/9" in c.value
+        n = len(db.TABLE_NAMES)
+        assert f"{n}/{n}" in c.value
 
     def test_cors_check_fails_when_widened(self, atelier_root: Path) -> None:
         from atelier.server.config import reload_settings
@@ -242,7 +245,7 @@ class TestLauncher:
         prepare()
         assert (atelier_root / "outputs").is_dir()
         assert (atelier_root / "var" / "atelier.db").exists()
-        assert len(db.table_names()) == 9
+        assert len(db.table_names()) == len(db.TABLE_NAMES)
 
     def test_prepare_is_idempotent(self, atelier_root: Path) -> None:
         prepare()

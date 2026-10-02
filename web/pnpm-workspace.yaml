@@ -1,2 +1,11 @@
-allowBuilds:
-  esbuild: set this to true or false
+# web/ 是独立包，不是 monorepo 成员——但 pnpm 只要看到本文件就把这里当工作区根，
+# 所以 packages 字段必须存在（原来留的是 `allowBuilds: esbuild: set this to true or false`
+# 这样的占位串，pnpm 会直接报 "packages field missing or empty" 而装不上依赖）。
+#
+# esbuild 需要跑 postinstall 拉自己的二进制；pnpm 9 默认拦构建脚本，
+# 必须显式放行，否则 vite build 会失败。
+packages:
+  - "."
+
+onlyBuiltDependencies:
+  - esbuild

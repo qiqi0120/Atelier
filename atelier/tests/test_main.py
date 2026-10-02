@@ -253,6 +253,27 @@ class TestCrossSiteWriteMiddleware:
         r = TestClient(self._app()).post("/write", json={}, headers={"Origin": "null"})
         assert r.status_code == 403
 
+    def test_own_origin_write_allowed(self) -> None:
+        """回归：`atelier web` 自带 SPA 时，**同源**写请求必须放行。
+
+        ``cors_origins`` 默认只列了 Vite dev server 的 :5173，那是「前端另起 dev server、
+        跨源调后端」的形态。但 `atelier web` 更常见的用法是**自己 serve 构建好的 SPA**，
+        页面与 API 同源 —— 此时所有写请求都带 ``Origin: http://<host>:<port>``，
+        撞白名单 → 全 403：对话发不出去、技能跑不了、画像存不进去。
+
+        TestClient 默认发 ``Host: testserver``，用同值构造 Origin 即为同源。
+        """
+        c = TestClient(self._app())
+        r = c.post("/write", json={}, headers={"Origin": "http://testserver"})
+        assert r.status_code == 200, r.text
+
+    def test_same_host_other_port_still_blocked(self) -> None:
+        """同 host 但**不同端口**是跨源，仍须拦——不能把同源判定放宽成「同 host」。"""
+        c = TestClient(self._app())
+        r = c.post("/write", json={}, headers={"Origin": "http://testserver:9999"})
+        assert r.status_code == 403
+        assert r.json()["error"]["detail"]["reason"] == "origin_not_allowed"
+
     def test_cross_origin_fetch_site_blocked(self) -> None:
         r = TestClient(self._app()).post(
             "/write", json={}, headers=GOOD_ORIGIN | {"Sec-Fetch-Site": "cross-site"}

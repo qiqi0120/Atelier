@@ -389,6 +389,61 @@ class TestClaudeSdkMapping:
         assert evs[1].data["tool_use_id"] == "tu1"
         assert evs[1].data["is_error"] is False
 
+    def test_tool_result_in_user_message_is_not_dropped(self) -> None:
+        """回归：SDK 把 ToolResultBlock 装在 **UserMessage** 里回传（user 角色）。
+
+        上面那条用例把它塞进 AssistantMessage——那不是 SDK 真实产生的形状，
+        所以「UserMessage 整个 return out、工具结果被丢弃」这个 bug 一直没被照到。
+        真机验证实测：模型调了 3 次门禁 tool，却收到 **0 条 tool_result**，
+        后果是前端只看到 TOOL_CALL、永远等不到结果，门禁块一直转圈。
+        """
+        from claude_agent_sdk import TextBlock, ToolResultBlock, UserMessage
+
+        msg = UserMessage(
+            content=[
+                ToolResultBlock(
+                    tool_use_id="tu9",
+                    content='{"blocked": true, "level": "block"}',
+                    is_error=False,
+                ),
+                TextBlock(text="工具结果之后的用户侧文本"),
+            ],
+        )
+        evs = events_from_message(msg, "t1")
+        assert [e.type for e in evs] == [EventType.TOOL_RESULT], "UserMessage 里的工具结果必须被映射出来"
+        assert evs[0].data["tool_use_id"] == "tu9"
+        assert "blocked" in str(evs[0].data["content"])
+        assert evs[0].data["is_error"] is False
+
+    def test_assistant_text_not_duplicated_when_streamed(self) -> None:
+        """回归：开了 ``include_partial_messages`` 后正文会**完整出现两次**。
+
+        SDK 先逐 token 发 ``StreamEvent``，末尾再用一条 ``AssistantMessage``
+        把同一份正文整块重发。两个源都映射的话，界面上每段话出现两遍
+        （真机实测：短增量累计 154 字，随后又来 32 + 122 = 154 字的整段）。
+
+        传 ``streamed=True`` 应跳过重复的 Text/Thinking 块，
+        但 **ToolUseBlock 仍要保留**——工具入参没有 StreamEvent 对应物。
+        """
+        from claude_agent_sdk import AssistantMessage, TextBlock, ThinkingBlock, ToolUseBlock
+
+        msg = AssistantMessage(
+            content=[
+                ThinkingBlock(thinking="想了一遍", signature="sig"),
+                TextBlock(text="这是正文"),
+                ToolUseBlock(id="t1", name="atelier_gate_run", input={"text": "x"}),
+            ],
+            model="m",
+        )
+        dup = events_from_message(msg, "t1")
+        assert [e.type for e in dup] == [
+            EventType.THINKING_DELTA, EventType.TEXT_DELTA, EventType.TOOL_CALL,
+        ], "未标记 streamed 时行为应与旧版一致"
+
+        deduped = events_from_message(msg, "t1", streamed=True)
+        assert [e.type for e in deduped] == [EventType.TOOL_CALL], "去重后只应保留工具调用"
+        assert deduped[0].data["name"] == "atelier_gate_run"
+
     def test_stream_event_text_delta(self) -> None:
         from claude_agent_sdk import StreamEvent
 
@@ -474,11 +529,64 @@ class TestClaudeSdkOptions:
         assert str(opts.cwd) == str(paths.ROOT)
 
     def test_native_thinking_enabled(self, atelier_root: Path) -> None:
-        """PRD F-B1 走原生能力：thinking 配置被打开。"""
+        """PRD F-B1 走原生能力：thinking 配置被打开。
+
+        **回归**：曾经写成 ``ThinkingConfigAdaptive()``，但它是 TypedDict（类型）
+        不是类，调用得到空 dict ``{}``——非 None 所以旧断言照样通过，可 SDK 的
+        ``_build_command`` 要读 ``t["type"]``，真连时直接 ``KeyError: 'type'``。
+        所以这里必须断言**结构**，不能只断言 not None。
+        """
         h = ClaudeSDKHarness(api_key="sk-test-key")
         opts = h.build_options(_req())
         assert opts.thinking is not None
-        assert opts.max_thinking_tokens == 4096
+        assert opts.thinking["type"] == "adaptive", f"thinking 缺 type 键，SDK 读命令时会崩：{opts.thinking!r}"
+        # thinking 与 max_thinking_tokens 同时给时 SDK 只认前者，别设成误导性的双份
+        assert opts.max_thinking_tokens is None
+
+    def test_thinking_config_survives_sdk_command_builder(self, atelier_root: Path) -> None:
+        """把 build_options 的结果喂给 SDK 自己的命令构造器——真跑前就把形状问题挡住。
+
+        这是 M1 缺的那道防线：mock 永远走不到命令构造这一步。
+        """
+        from claude_agent_sdk._internal.transport.subprocess_cli import SubprocessCLITransport
+
+        h = ClaudeSDKHarness(api_key="sk-test-key")
+        opts = h.build_options(_req())
+        transport = SubprocessCLITransport(prompt="hi", options=opts)
+        transport._cli_path = transport._find_cli()  # 只解析路径，不真连
+        cmd = transport._build_command()
+        assert "--thinking" in cmd and "adaptive" in cmd, cmd
+
+    def test_stream_does_not_iterate_over_wait_for_coroutine(self, atelier_root: Path) -> None:
+        """回归：``async for x in asyncio.wait_for(gen, t)`` 是错的，wait_for 返回协程。
+
+        M1 全部跑 MockHarness（有自己的 stream），这条路径从未被执行过，
+        于是每一条**真实**对话都会在第一轮抛
+        ``TypeError: 'async for' requires an object with __aiter__``。
+        这里直接验包装器能正常迭代并正确报总超时。
+        """
+        import asyncio
+
+        from atelier.server.harness.claude_sdk import _aiter_with_total_timeout
+
+        async def gen():
+            for i in range(3):
+                yield i
+
+        async def _ok():
+            return [x async for x in _aiter_with_total_timeout(gen(), timeout=5)]
+
+        assert asyncio.run(_ok()) == [0, 1, 2]
+
+        async def _slow():
+            async def gen2():
+                yield 0
+                await asyncio.sleep(10)
+                yield 1
+            return [x async for x in _aiter_with_total_timeout(gen2(), timeout=0.2)]
+
+        with pytest.raises(TimeoutError):
+            asyncio.run(_slow())
 
     def test_extra_options_override_defaults(self, atelier_root: Path) -> None:
         """扩展点：上层挂 skills / output_format 用，不必改本文件。"""

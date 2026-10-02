@@ -117,6 +117,20 @@ class Settings:
     def cors_origin_list(self) -> list[str]:
         return list(self.cors_origins)
 
+    def effective_cors_origins(self) -> tuple[str, ...]:
+        """**实际生效**的来源白名单 = 配置值 + 服务自己的地址。
+
+        ``cors_origins`` 默认只列了 Vite dev server 的 :5173，那是「前端另起 dev server、
+        跨源调后端」的形态。但 ``atelier web`` 另一种主流用法是**自己 serve 构建好的 SPA**
+        （默认 :8000），此时页面与 API 同源，那个来源必须也在白名单里，否则所有写请求 403。
+
+        放在 Settings 上而不是散在 ``main.py`` 里，是为了让**实际生效值只有一处来源**——
+        CORS 中间件、跨站写中间件、``/api/health``、``atelier doctor`` 都读它，
+        不会出现「中间件放行但 health 报的是另一套」。
+        """
+        own = tuple(f"http://{h}:{self.port}" for h in (self.host, "127.0.0.1", "localhost"))
+        return tuple(dict.fromkeys(self.cors_origins + own))
+
     def missing_keys(self, names: list[str]) -> list[str]:
         """检查一组环境变量名里哪些没配（技能 required_keys 用）。"""
         return [n for n in names if not _env(n)]
@@ -152,7 +166,7 @@ class Settings:
         return {
             "host": self.host,
             "port": self.port,
-            "cors_origins": list(self.cors_origins),
+            "cors_origins": list(self.effective_cors_origins()),
             "cors_locked": self.is_cors_locked,
             "mock": self.mock,
             "harness_name": "mock" if self.mock else self.harness_name,

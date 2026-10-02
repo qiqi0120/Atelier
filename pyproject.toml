@@ -22,6 +22,11 @@ dev = [
   "ruff>=0.7",
 ]
 
+# flat-layout 下 setuptools 会扫到 web/prd/plans/specs/design 六个顶层包并直接拒绝构建，
+# 必须显式声明只打包 atelier*（PRD D7：atelier/ 是唯一的 Python 包）。
+[tool.setuptools.packages.find]
+include = ["atelier*"]
+
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["atelier/tests"]

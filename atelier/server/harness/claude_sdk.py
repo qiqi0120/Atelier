@@ -9,7 +9,12 @@
   都能从顶层 ``claude_agent_sdk`` 直接 import（``StreamEvent`` 也在顶层，不必进 ``.types``）
 - ``tool(name, description, input_schema, annotations=None)``；``input_schema`` 收 ``type | dict``
 - ``create_sdk_mcp_server(name, version="1.0.0", tools=None)``
-- ``ClaudeSDKClient.interrupt()`` 是**同步**方法（返回 None，不是协程）——中断路径按同步调
+- ``ClaudeSDKClient.interrupt()`` 是 **async** 方法（``inspect.iscoroutinefunction`` 为 True），
+  必须 await。⚠️ 本文件此前注释写的是「同步方法」——那条实测结论是**错的**，
+  不 await 会让 SDK 侧中断从未发生，退出标准 3（2s 内停止）直接不达标（实测 7.5s）。
+  现按 ``inspect.isawaitable()`` 兼容处理，async 则 await。
+- ``ThinkingConfig``（``ThinkingConfigAdaptive`` 等）是 **TypedDict 类型、不是类**：
+  调用 ``ThinkingConfigAdaptive()`` 得到的是**空 dict**，正确写法是 ``{"type": "adaptive"}``
 - ``Query`` 签名是 keyword-only：``query(*, prompt, options=None, transport=None)``
 
 两处 spec 未写、需要实现时注意的实测事实：
@@ -27,6 +32,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import inspect
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from typing import Any
@@ -105,6 +111,40 @@ def system_prompt_for(profile: models.Profile | None, system_suffix: str | None 
     return "\n\n".join(parts)
 
 
+async def _aiter_with_total_timeout(source: AsyncIterator[Any], timeout: float) -> AsyncIterator[Any]:
+    """给异步迭代器套一层**整轮总超时**（SPEC-01 §8：AI 生成 > 120s → 504）。
+
+    不用 ``asyncio.wait_for(gen, t)``：那返回的是协程，不能直接 ``async for``。
+    也不用 ``asyncio.timeout()``：那是 3.11+ 的 API，而 ``pyproject`` 的 floor 是 3.10。
+    这里的写法 3.10 起可用，且**保持总超时语义**——每一步都拿「剩余时间」去等，
+    而不是给每个元素单独一个 timeout（后者会让慢速流式永远不超时）。
+    """
+    it = source.__aiter__()
+    loop = asyncio.get_running_loop()
+    deadline = loop.time() + timeout
+    while True:
+        remaining = deadline - loop.time()
+        if remaining <= 0:
+            raise TimeoutError
+        try:
+            yield await asyncio.wait_for(it.__anext__(), timeout=remaining)
+        except StopAsyncIteration:
+            return
+
+
+def _supports_adaptive_thinking() -> bool:
+    """当前 SDK 版本认不认 ``thinking={"type": "adaptive"}``。
+
+    判据不是「能不能 import 到 ``ThinkingConfigAdaptive`` 这个名字」（它在很老的
+    版本里就存在，是个空壳 TypedDict），而是**``ClaudeAgentOptions`` 有没有
+    ``thinking`` 字段**——SDK 的命令构造器只在有这个字段时才会去读 ``t["type"]``。
+    """
+    try:
+        return "thinking" in ClaudeAgentOptions.__annotations__
+    except Exception:  # noqa: BLE001 — 判据拿不到就当不支持，退回老参数
+        return False
+
+
 def build_system_prompt(req: Any) -> str:
     """从 :class:`TurnRequest` 组系统提示。"""
     return system_prompt_for(getattr(req, "profile", None), getattr(req, "system_suffix", None))
@@ -130,8 +170,10 @@ def _stream_text_delta(msg: StreamEvent) -> str | None:
     return None
 
 
-def events_from_message(msg: Any, turn_id: str) -> list[TurnEvent]:
+def events_from_message(msg: Any, turn_id: str, *, streamed: bool = False) -> list[TurnEvent]:
     """把一条 SDK 消息映射成 0..n 个 :class:`TurnEvent`（纯函数，好测）。
+
+    ``streamed=True`` 表示本轮**已经收到过** ``StreamEvent`` 增量。
 
     映射表：
 
@@ -142,6 +184,13 @@ def events_from_message(msg: Any, turn_id: str) -> list[TurnEvent]:
     ``ResultMessage``          DONE（``is_error`` → ERROR，带失败原因）
     ``SystemMessage``          忽略（init 之类是 SDK 内部握手信号）
     ==========================  ==============================================
+
+    ⚠️ ``streamed`` 是为了去重：我们开了 ``include_partial_messages=True``，SDK 会
+    **先**逐 token 发 ``StreamEvent``，**再**用一条 ``AssistantMessage`` 把同一份
+    正文/思考**完整重发一遍**。两个源都映射的话，界面上每段话会**完整出现两次**
+    （真机实测：短增量累计 154 字，随后又来 32 + 122 = 154 字的整段）。
+    传 ``streamed=True`` 时跳过重复的 Text/Thinking 块——
+    但 ``ToolUseBlock`` 仍要处理（工具入参没有 StreamEvent 对应物）。
     """
     out: list[TurnEvent] = []
 
@@ -161,9 +210,11 @@ def events_from_message(msg: Any, turn_id: str) -> list[TurnEvent]:
     if isinstance(msg, AssistantMessage):
         for block in msg.content or []:
             if isinstance(block, ThinkingBlock):
-                out.append(TurnEvent(EventType.THINKING_DELTA, turn_id, {"text": block.thinking}))
+                if not streamed:  # 增量已到过 → 跳过整块重发
+                    out.append(TurnEvent(EventType.THINKING_DELTA, turn_id, {"text": block.thinking}))
             elif isinstance(block, TextBlock):
-                out.append(TurnEvent(EventType.TEXT_DELTA, turn_id, {"text": block.text}))
+                if not streamed:  # 同上
+                    out.append(TurnEvent(EventType.TEXT_DELTA, turn_id, {"text": block.text}))
             elif isinstance(block, ToolUseBlock):
                 out.append(
                     TurnEvent(
@@ -217,7 +268,28 @@ def events_from_message(msg: Any, turn_id: str) -> list[TurnEvent]:
         )
         return out
 
-    if isinstance(msg, (UserMessage, SystemMessage)):
+    if isinstance(msg, UserMessage):
+        # ⚠️ 这里原来和 SystemMessage 一起 `return out`，把**工具结果整条丢了**。
+        # SDK 是把 ToolResultBlock 装在 UserMessage 里回传的（user 角色），
+        # 不是 AssistantMessage——所以上面 AssistantMessage 分支里的 ToolResultBlock
+        # 处理其实是死代码。后果：模型调了门禁 tool，前端只看到 TOOL_CALL、
+        # 永远等不到 TOOL_RESULT，对话里的门禁块一直转圈。真机验证实测 0 条 tool_result。
+        for block in msg.content or []:
+            if isinstance(block, ToolResultBlock):
+                out.append(
+                    TurnEvent(
+                        EventType.TOOL_RESULT,
+                        turn_id,
+                        {
+                            "tool_use_id": block.tool_use_id,
+                            "content": _plain(block.content),
+                            "is_error": bool(getattr(block, "is_error", False)),
+                        },
+                    )
+                )
+        return out
+
+    if isinstance(msg, SystemMessage):
         return out
     return out
 
@@ -313,11 +385,21 @@ class ClaudeSDKHarness:
             options["continue_conversation"] = True
         if self._model:
             options["model"] = self._model
-        # PRD F-B1：思考流用原生能力（ThinkingConfigAdaptive），不是自己模拟
-        with contextlib.suppress(TypeError, ValueError, ImportError):
-            from claude_agent_sdk import ThinkingConfigAdaptive  # 局部 import：新版本才有
-
-            options["thinking"] = ThinkingConfigAdaptive()
+        # PRD F-B1：思考流用原生能力，不是自己模拟。
+        #
+        # ⚠️ ``thinking`` 必须是**字典字面量**。``ThinkingConfigAdaptive`` 是 TypedDict
+        # （类型）而不是类，`ThinkingConfigAdaptive()` 会返回空 dict `{}`，
+        # 而 SDK 的 `_build_command` 要读 `t["type"]` → `KeyError: 'type'`，
+        # 在 client.connect() 时炸掉。之前这里用 `contextlib.suppress` 包着，
+        # 反而把「立刻会崩的错配」变成了「静默的坏配置」——M1 全部跑 MockHarness，
+        # 这个洞一直没被照到。
+        #
+        # 兼容处理：先试 `thinking`；SDK 太老不认这个字段时退回 `max_thinking_tokens`。
+        # 注意两者**同时给会被 SDK 忽略**（它 `if thinking is not None ... elif max_...`），
+        # 所以这里只在确认拿到合法配置后才设其一。
+        if _supports_adaptive_thinking():
+            options["thinking"] = {"type": "adaptive"}
+        else:
             options["max_thinking_tokens"] = 4096
         options.update(self._extra_options)
         return ClaudeAgentOptions(**options)
@@ -366,6 +448,9 @@ class ClaudeSDKHarness:
         self._tasks[req.turn_id] = asyncio.current_task()
         recorder = TurnRecorder(req.session_id, req.turn_id)
         thinking_open = False
+        # 本轮是否已收到过 token 级增量。开了 include_partial_messages 后 SDK 会在
+        # 末尾用 AssistantMessage 把同一份正文/思考整块重发一遍，标记它以去重。
+        streamed_deltas = False
 
         def emit(ev: TurnEvent) -> TurnEvent:
             self._events.setdefault(req.turn_id, []).append(ev)
@@ -379,11 +464,19 @@ class ClaudeSDKHarness:
             async with self._turn_client(req) as client:
                 await client.query(prompt, session_id=req.session_id)
                 try:
-                    async for msg in asyncio.wait_for(
-                        _drain(client.receive_response(), stop), timeout=self._timeout
+                    # ⚠️ 不能写成 `async for msg in asyncio.wait_for(gen, ...)`：
+                    # ``wait_for`` 返回的是**协程**，没有 ``__aiter__``，3.12 直接
+                    # `TypeError: 'async for' requires an object with __aiter__`。
+                    # 之前的写法在 MockHarness 下永远走不到（mock 有自己的 stream），
+                    # 所以每一条**真实**对话都会在 connect 后第一轮就崩。
+                    # 这里用 _aiter_with_total_timeout 保持「整轮总超时」语义。
+                    async for msg in _aiter_with_total_timeout(
+                        _drain(client.receive_response(), stop), self._timeout
                     ):
                         self._remember_session(req.session_id, getattr(msg, "session_id", None))
-                        evs = events_from_message(msg, req.turn_id)
+                        if isinstance(msg, StreamEvent) and _stream_text_delta(msg):
+                            streamed_deltas = True
+                        evs = events_from_message(msg, req.turn_id, streamed=streamed_deltas)
                         for ev in evs:
                             if ev.type == EventType.THINKING_DELTA and not thinking_open:
                                 thinking_open = True
@@ -458,8 +551,16 @@ class ClaudeSDKHarness:
                 continue
             client = self._clients.get(session_id)
             if client is not None:
+                # ⚠️ 之前这里写的是 `client.interrupt()` 且注释标「0.2.163 实测：同步方法」，
+                # **那条实测结论是错的**：`inspect.iscoroutinefunction` 返回 True，
+                # 它是 async 方法。不 await 的话协程被直接丢弃，SDK 侧中断**从未发生**，
+                # 只有 RuntimeWarning，而 `contextlib.suppress` 又把警告前的异常一并吞了——
+                # 于是中断悄悄退化成「只置 stop 标记 + 0.5s 后 cancel」，实测 7.5s 才停。
+                # 跨版本兼容：返回值可 await 就 await，是 None（旧版同步）就直接过。
                 with contextlib.suppress(Exception):
-                    client.interrupt()  # 0.2.163 实测：同步方法
+                    outcome = client.interrupt()
+                    if inspect.isawaitable(outcome):
+                        await outcome
             break
         finished = self._finished.get(turn_id)
         if finished is not None and not finished.is_set():

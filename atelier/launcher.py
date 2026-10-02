@@ -51,6 +51,15 @@ def launch_web(
     """起服务。``reload=True`` 需要传字符串形式的 import 路径（uvicorn 的要求）。"""
     import uvicorn
 
+    # CLI 的 --host/--port 必须**同步回运行期配置**，否则：
+    #   - main.py 组装 CORS 白名单时用的是 settings.port，会写成错端口
+    #   - /api/health 与 `atelier doctor` 报出来的端口是假的
+    # 真正兜底的是 CrossSiteWriteMiddleware._is_same_origin（按请求实际 Host 判同源），
+    # 但配置本身也得如实。
+    from .server.config import reload_settings
+
+    reload_settings(host=host, port=port)
+
     prepare()
     if reload:
         target = "atelier.server.main:app"
