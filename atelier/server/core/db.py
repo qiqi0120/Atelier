@@ -39,7 +39,7 @@ __all__ = [
     "utcnow",
 ]
 
-#: SPEC-01 §7 的 9 张表
+#: SPEC-01 §7 的表清单。skill_runs 为 M1 收尾时补的第 10 张表（见 _apply_v2）。
 TABLE_NAMES: tuple[str, ...] = (
     "profiles",
     "memories",
@@ -50,9 +50,10 @@ TABLE_NAMES: tuple[str, ...] = (
     "publish_records",
     "platform_creds",
     "settings",
+    "skill_runs",
 )
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 _DDL: tuple[str, ...] = (
     """CREATE TABLE IF NOT EXISTS profiles (
@@ -118,6 +119,12 @@ _EXPECTED: dict[str, tuple[str, ...]] = {
     ),
     "platform_creds": ("id", "platform", "account", "secret_ref", "state", "verified_at", "created_at"),
     "settings": ("k", "v"),
+    "skill_runs": (
+        "id", "skill_id", "project", "profile_id", "status", "params",
+        "result_markdown", "artifacts", "gate_report", "cost_estimate", "cost_actual",
+        "stdout", "stderr", "returncode", "error", "missing_keys", "duration",
+        "created_at", "updated_at",
+    ),
 }
 
 #: 补列时的列定义（SQLite 不允许裸 ADD COLUMN 带 PRIMARY KEY，这里只列可选补的普通列）
@@ -133,6 +140,32 @@ def _apply_v1(conn: sqlite3.Connection) -> None:
     conn.execute("CREATE INDEX IF NOT EXISTS idx_artifacts_project ON artifacts(project, created_at)")
     conn.execute("CREATE INDEX IF NOT EXISTS idx_publish_records_draft ON publish_records(draft_id)")
     conn.execute("CREATE INDEX IF NOT EXISTS idx_platform_creds_platform ON platform_creds(platform)")
+
+
+def _apply_v2(conn: sqlite3.Connection) -> None:
+    """v2 · 补 ``skill_runs``（M1 收尾）。
+
+    技能运行记录此前只在 ``api/capability.py`` 的进程内字典里，重启即丢
+    （M1 验收报告 §6 已知缺口）。这里补第 10 张表。
+    """
+    conn.execute(
+        """CREATE TABLE IF NOT EXISTS skill_runs (
+  id TEXT PRIMARY KEY,
+  skill_id TEXT NOT NULL,
+  project TEXT, profile_id TEXT,
+  status TEXT NOT NULL,
+  params TEXT,
+  result_markdown TEXT, artifacts TEXT, gate_report TEXT,
+  cost_estimate TEXT,
+  cost_actual REAL DEFAULT 0.0,
+  stdout TEXT, stderr TEXT, returncode INTEGER,
+  error TEXT, missing_keys TEXT,
+  duration REAL DEFAULT 0.0,
+  created_at TEXT, updated_at TEXT
+)"""
+    )
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_skill_runs_skill ON skill_runs(skill_id, created_at)")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_skill_runs_project ON skill_runs(project, created_at)")
 
 
 def _add_missing_columns(conn: sqlite3.Connection) -> list[str]:
@@ -152,7 +185,7 @@ def _add_missing_columns(conn: sqlite3.Connection) -> list[str]:
 
 
 #: 版本号 → 迁移步骤。新增版本时只往这里加一项，不要动老步骤（SPEC-01 §7 幂等）。
-_MIGRATIONS: dict[int, Callable[[sqlite3.Connection], None]] = {1: _apply_v1}
+_MIGRATIONS: dict[int, Callable[[sqlite3.Connection], None]] = {1: _apply_v1, 2: _apply_v2}
 
 _local = threading.local()
 _INIT_LOCK = threading.Lock()

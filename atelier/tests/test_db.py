@@ -16,6 +16,7 @@ from atelier.server.core import db
 EXPECTED_TABLES = {
     "profiles", "memories", "sessions", "messages", "artifacts",
     "publish_drafts", "publish_records", "platform_creds", "settings",
+    "skill_runs",
 }
 
 
@@ -25,19 +26,24 @@ class TestSchema:
         assert db.db_path() == paths.VAR / "atelier.db"
         assert db.db_path().exists()
 
-    def test_all_nine_tables_created(self, atelier_root: Path) -> None:
+    def test_all_domain_tables_created(self, atelier_root: Path) -> None:
         conn = db.init_db()
         created = set(db.table_names(conn))
         assert EXPECTED_TABLES <= created, f"缺表：{EXPECTED_TABLES - created}"
 
-    def test_exactly_nine_domain_tables(self, atelier_root: Path) -> None:
+    def test_exactly_domain_tables(self, atelier_root: Path) -> None:
         """除了 sqlite_ 内建表，不应该多出别的业务表。"""
         conn = db.init_db()
         assert set(db.table_names(conn)) == EXPECTED_TABLES
 
+    def test_table_names_matches_ddl(self, atelier_root: Path) -> None:
+        """TABLE_NAMES 与实际建表必须一致，否则 doctor 的「N/N 张表就绪」会说谎。"""
+        conn = db.init_db()
+        assert set(db.TABLE_NAMES) == set(db.table_names(conn))
+
     def test_schema_version_recorded(self, atelier_root: Path) -> None:
         conn = db.init_db()
-        assert db.schema_version(conn) == db.SCHEMA_VERSION == 1
+        assert db.schema_version(conn) == db.SCHEMA_VERSION == 2
 
     def test_migration_is_idempotent(self, atelier_root: Path) -> None:
         conn = db.init_db()

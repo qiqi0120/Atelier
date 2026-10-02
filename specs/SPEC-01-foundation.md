@@ -436,7 +436,27 @@ CREATE TABLE platform_creds (       -- 凭证密文，绝不存明文
   verified_at TEXT, created_at TEXT
 );
 CREATE TABLE settings (k TEXT PRIMARY KEY, v TEXT);  -- 密钥掩码、自检结果快照
+CREATE TABLE skill_runs (            -- 技能运行记录（M1 收尾补，见下）
+  id TEXT PRIMARY KEY,              -- run_id
+  skill_id TEXT NOT NULL,
+  project TEXT, profile_id TEXT,
+  status TEXT NOT NULL,             -- running|done|failed|cost_pending
+  params TEXT,                      -- JSON：入参原样留档
+  result_markdown TEXT, artifacts TEXT, gate_report TEXT,   -- JSON
+  cost_estimate TEXT,               -- JSON
+  cost_actual REAL DEFAULT 0.0,
+  stdout TEXT, stderr TEXT, returncode INTEGER,
+  error TEXT, missing_keys TEXT,    -- JSON
+  duration REAL DEFAULT 0.0,
+  created_at TEXT, updated_at TEXT
+);
 ```
+
+> **`skill_runs` 是 M1 收尾时补的第 10 张表**（M1 验收报告 §8 的架构性欠账）。
+> 之前技能运行记录只存于 `api/capability.py` 的进程内 `_RUNS` 字典，重启即丢。
+> 命名用 `skill_runs` 而非 `runs`：M2 之后还会有 RSS 拉取、热点抓取等别的「运行」，
+> 通用表名会立刻变味。
+> 索引：`idx_skill_runs_skill(skill_id, created_at)`、`idx_skill_runs_project(project, created_at)`。
 
 **约定**：
 - 时间统一 ISO8601 UTC 字符串

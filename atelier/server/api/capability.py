@@ -7,6 +7,7 @@
 | GET | /api/skills            | ?layer= 过滤，**不含 body_markdown** |
 | GET | /api/skills/{id}       | 含 SKILL.md 全文 + 配置状态 |
 | POST | /api/skills/{id}/run   | {params, project, profile_id, confirm_cost} → {run_id, stream_url} |
+| GET | /api/skills/runs        | 运行历史（?skill_id= &project= &status= &limit=），**落库后重启仍在** |
 | GET | /api/skills/runs/{run_id} | {status, stdout, result_markdown, artifacts[], error} |
 | GET | /api/keys              | **只给掩码**，永不返回明文 |
 | POST | /api/keys              | 只写；**留空不覆盖** → {"unchanged": true} |
@@ -26,7 +27,7 @@ from fastapi import APIRouter, Query
 from pydantic import BaseModel, Field
 
 from atelier.server.errors import SkillMissingKey
-from atelier.server.skills import keys, loader, manifest, runner
+from atelier.server.skills import keys, loader, manifest, runner, store
 
 log = logging.getLogger("atelier.api.capability")
 
@@ -37,8 +38,9 @@ router = APIRouter(prefix="/api", tags=["capability"])
 # 因此显式声明空前缀，让本模块的 `/api` 生效。
 ROUTER_PREFIX = ""
 
-# 运行中的任务表。SPEC-01 §8 要求长任务用任务表 + 轮询；M1 先用进程内表，
-# 重启后状态丢失（已产物仍在文件系统里）。落库到 core/db.py 属地基域，未在此越界。
+# 在途任务缓存。**SQLite 才是唯一真相源**（skill_runs 表），这里只是给轮询在跑的
+# run 用的写穿缓存：GET 先查内存，未命中回库查。M1 收尾前这里就是唯一存储，
+# 重启即丢（已产物还在文件系统里），见 skills/store.py。
 _RUNS: dict[str, runner.RunResult] = {}
 _RUN_TASKS: dict[str, asyncio.Task] = {}
 
@@ -91,13 +93,32 @@ def _skill_brief(s: loader.LoadedSkill) -> dict:
     return d
 
 
+@router.get("/skills/runs")
+def list_skill_runs(
+    skill_id: str | None = Query(default=None),
+    project: str | None = Query(default=None),
+    status: str | None = Query(default=None),
+    limit: int = Query(default=50, ge=1, le=200),
+) -> dict:
+    """运行历史（倒序）。
+
+    M1 收尾新增：落库之后这条才真正成立——进程重启过也能查到「跑过什么、
+    返回码多少、门禁怎么判」。支持按技能 / 项目 / 状态过滤。
+    """
+    return {"runs": store.list_runs(skill_id=skill_id, project=project, status=status, limit=limit)}
+
+
 @router.get("/skills/runs/{run_id}")
 def get_run(run_id: str) -> dict:
     r = _RUNS.get(run_id)
-    if r is None:
-        return {"run_id": run_id, "status": "unknown", "result_markdown": "", "artifacts": [],
-                "error": {"code": "NotFound", "message": f"找不到运行记录 {run_id}"}}
-    return r.to_dict()
+    if r is not None:
+        return r.to_dict()
+    # 内存未命中 → 回库查（重启后仍可取回）
+    row = store.get_run(run_id)
+    if row is not None:
+        return row
+    return {"run_id": run_id, "status": "unknown", "result_markdown": "", "artifacts": [],
+            "error": {"code": "NotFound", "message": f"找不到运行记录 {run_id}"}}
 
 
 @router.get("/skills/{skill_id}")
@@ -137,6 +158,14 @@ async def run_skill(skill_id: str, body: RunBody) -> dict:
         est = runner.estimate_cost(skill, body.params)
         run_id = uuid.uuid4().hex
         log.info("cost gate: %s requires confirmation (¥%.2f)", skill_id, est["amount"])
+        pending = runner.RunResult(
+            run_id=run_id, skill_id=skill_id, status="cost_pending", project=body.project,
+            result_markdown=runner.cost_markdown(skill, est), cost_estimate=est,
+        )
+        _RUNS[run_id] = pending
+        store.start_run(run_id, skill_id, project=body.project, profile_id=body.profile_id,
+                        params=body.params)
+        store.finish_run(pending, profile_id=body.profile_id)
         return {
             "run_id": run_id,
             "skill_id": skill_id,
@@ -146,11 +175,14 @@ async def run_skill(skill_id: str, body: RunBody) -> dict:
             "cost_estimate": est,
             "cost_actual": 0.0,
             "artifacts": [],
-            "result_markdown": runner.cost_markdown(skill, est),
+            "result_markdown": pending.result_markdown,
             "stream_url": f"/api/skills/runs/{run_id}",
         }
 
     run_id = uuid.uuid4().hex
+    # 先落 running 再开跑：进程被 kill 也留得下一条「跑过但没跑完」的痕迹。
+    store.start_run(run_id, skill_id, project=body.project, profile_id=body.profile_id,
+                    params=body.params)
 
     async def _job() -> None:
         try:
@@ -161,6 +193,7 @@ async def run_skill(skill_id: str, body: RunBody) -> dict:
             # 若用 r.run_id 作键，客户端拿到的就是查不到的那一个（status 永远 unknown）。
             r.run_id = run_id
             _RUNS[run_id] = r
+            store.finish_run(r, profile_id=body.profile_id)
         except Exception as e:
             from atelier.server.errors import AtelierError
 
@@ -168,16 +201,22 @@ async def run_skill(skill_id: str, body: RunBody) -> dict:
                 "code": "SkillRunFailed", "message": str(e), "detail": None, "hint": None,
             }
             log.exception("skill run failed: %s", skill_id)
-            _RUNS[run_id] = runner.RunResult(
+            failed = runner.RunResult(
                 run_id=run_id, skill_id=skill_id, status="failed", project=body.project, error=err
             )
+            _RUNS[run_id] = failed
+            store.finish_run(failed, profile_id=body.profile_id)
 
     if body.wait:
         r = await runner.run_skill(
             skill_id, body.params, body.project, body.profile_id, confirm_cost=body.confirm_cost
         )
-        _RUNS[r.run_id] = r
-        return {**r.to_dict(), "skill_id": skill_id, "stream_url": f"/api/skills/runs/{r.run_id}"}
+        # 与 _job 同一套口径：runner 内部自己又生成了一个 run_id，不改的话
+        # start_run 写的和 finish_run 写的会是两行（每次同步运行多一条记录）。
+        r.run_id = run_id
+        _RUNS[run_id] = r
+        store.finish_run(r, profile_id=body.profile_id)
+        return {**r.to_dict(), "skill_id": skill_id, "stream_url": f"/api/skills/runs/{run_id}"}
 
     task = asyncio.create_task(_job())
     _RUN_TASKS[run_id] = task
