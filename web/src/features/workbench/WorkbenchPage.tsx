@@ -1,20 +1,29 @@
+/** 工作台（F-H1）：概览/待办/最近产出全部来自 /api/attribution/workbench-summary 现查数据，
+ * 创作数据看板（F-H2）是页内 section。热点速览与快捷入口保持原有装配。
+ */
+
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import type { LucideIcon } from 'lucide-react'
 import {
   ArrowRight,
   ArrowUp,
   BarChart3,
-  Check,
+  CalendarRange,
   Clock,
   Flame,
   Image as ImageIcon,
   MonitorPlay,
-  User,
+  TrendingUp,
 } from 'lucide-react'
 import { Button, Card, Chip, EmptyState, Skeleton, toast } from '@/components'
+import type { ChipTone } from '@/components'
 import { useAtelier } from '@/lib/store'
 import { discoveryApi } from '@/features/hot/api'
 import type { HotEntry } from '@/features/hot/types'
+import { workbenchApi } from './api'
+import { DashboardSection } from './DashboardSection'
+import type { TodoItem, WorkbenchSummary } from './types'
 
 /** 今日热点速览：SPEC-12 起接真实 /api/discovery/hot（待处理素材，至多 6 条） */
 function useHotFeed() {
@@ -36,6 +45,38 @@ function useHotFeed() {
   return items
 }
 
+/** F-H1 概览：null=加载中；failed=true 表示请求失败（hero 如实提示，不假装是零） */
+function useWorkbenchSummary(): { summary: WorkbenchSummary | null; failed: boolean } {
+  const [summary, setSummary] = useState<WorkbenchSummary | null>(null)
+  const [failed, setFailed] = useState(false)
+  useEffect(() => {
+    let alive = true
+    workbenchApi
+      .summary()
+      .then((s) => {
+        if (!alive) return
+        setSummary(s)
+        setFailed(false)
+      })
+      .catch(() => {
+        if (!alive) return
+        setSummary(null)
+        setFailed(true)
+      })
+    return () => {
+      alive = false
+    }
+  }, [])
+  return { summary, failed }
+}
+
+const TODO_META: Record<TodoItem['kind'], { label: string; tone: ChipTone; icon: LucideIcon; sub: string }> = {
+  draft: { label: '待发', tone: 'warn', icon: Clock, sub: '到发布中心处理' },
+  topic: { label: '选题', tone: 'info', icon: ArrowUp, sub: '到选题库继续' },
+  calendar: { label: '日程', tone: 'outline', icon: CalendarRange, sub: '到日历查看' },
+  hot: { label: '热点', tone: 'danger', icon: Flame, sub: '到发现处理' },
+}
+
 function greet(): string {
   const h = new Date().getHours()
   const word = h < 6 ? '深夜好' : h < 11 ? '早上好' : h < 14 ? '中午好' : h < 18 ? '下午好' : '晚上好'
@@ -45,6 +86,7 @@ function greet(): string {
 export function WorkbenchPage() {
   const navigate = useNavigate()
   const fillPrompt = useAtelier((s) => s.fillPrompt)
+  const { summary, failed } = useWorkbenchSummary()
   const hotFeed = useHotFeed()
 
   const ask = (text: string) => {
@@ -52,6 +94,17 @@ export function WorkbenchPage() {
     navigate('/chat')
     toast('已填入输入框，确认后点发送', 'ok')
   }
+
+  const scrollToDashboard = () => {
+    document.getElementById('dashboard')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
+
+  const topicsTotal = summary ? summary.topics.todo + summary.topics.doing + summary.topics.done : 0
+  const heroAllZero =
+    summary !== null &&
+    summary.drafts_pending === 0 &&
+    summary.topics.doing === 0 &&
+    summary.artifacts_last_7d === 0
 
   return (
     <div className="view-pad stack" style={{ gap: 18 }}>
@@ -63,10 +116,31 @@ export function WorkbenchPage() {
               画像已生效
             </Chip>
           </div>
-          <p>
-            今天有 <b style={{ color: 'var(--ink)' }}>3 条</b> 待发内容 · 2 个选题卡在「进行中」 · 抖音号登录态将在{' '}
-            <b style={{ color: 'var(--ink)' }}>6 小时后</b>过期
-          </p>
+          {failed ? (
+            <p>概览暂时没拉到（本地服务没在跑？）——刷新页面再试，不拿假数字凑。</p>
+          ) : summary === null ? (
+            <Skeleton width="72%" height={16} />
+          ) : heroAllZero ? (
+            <p>
+              今天还没有排期——
+              <a
+                href="/topics"
+                style={{ color: 'var(--accent-ink)', textDecoration: 'underline', cursor: 'pointer' }}
+                onClick={(e) => {
+                  e.preventDefault()
+                  navigate('/topics')
+                }}
+              >
+                去选题库找点事做
+              </a>
+            </p>
+          ) : (
+            <p>
+              今天有 <b style={{ color: 'var(--ink)' }}>{summary.drafts_pending} 条</b>待发内容 ·{' '}
+              {summary.topics.doing} 个选题进行中 ·{' '}
+              <b style={{ color: 'var(--ink)' }}>{summary.artifacts_last_7d} 件</b>产物近 7 天入库
+            </p>
+          )}
         </div>
         <div className="hero-r">
           <Button onClick={() => navigate('/calendar')}>看排期</Button>
@@ -80,36 +154,42 @@ export function WorkbenchPage() {
         <Card>
           <div className="kpi">
             <b>
-              12.4<span className="unit">k</span>
+              {summary ? (
+                summary.topics.doing
+              ) : (
+                <Skeleton width={36} height={22} />
+              )}
             </b>
-            <span>本周涨粉</span>
-            <span className="delta up">↑ 18% 环比</span>
-          </div>
-        </Card>
-        <Card>
-          <div className="kpi">
-            <b>3</b>
-            <span>待发内容</span>
-            <span className="delta dn">↓ 1 已超期</span>
-          </div>
-        </Card>
-        <Card>
-          <div className="kpi">
-            <b>2</b>
             <span>进行中选题</span>
             <span className="mut2" style={{ fontSize: 'var(--fs-help)' }}>
-              共 12 条在库
+              共 {topicsTotal} 条在库
             </span>
           </div>
         </Card>
         <Card>
           <div className="kpi">
-            <b>
-              86<span className="unit">%</span>
-            </b>
-            <span>门禁一次通过率</span>
+            <b>{summary ? summary.drafts_pending : <Skeleton width={36} height={22} />}</b>
+            <span>待发内容</span>
             <span className="mut2" style={{ fontSize: 'var(--fs-help)' }}>
-              本周 21 次产出
+              调度器 · {summary?.scheduler.due_count ?? 0} 条到期
+            </span>
+          </div>
+        </Card>
+        <Card>
+          <div className="kpi">
+            <b>{summary ? summary.calendar_today : <Skeleton width={36} height={22} />}</b>
+            <span>今日日程</span>
+            <span className="mut2" style={{ fontSize: 'var(--fs-help)' }}>
+              另有 {summary?.hot_pending ?? 0} 条热点待处理
+            </span>
+          </div>
+        </Card>
+        <Card>
+          <div className="kpi">
+            <b>{summary ? summary.artifacts_last_7d : <Skeleton width={36} height={22} />}</b>
+            <span>近 7 天产出</span>
+            <span className="mut2" style={{ fontSize: 'var(--fs-help)' }}>
+              sent {summary?.records_last_7d.sent ?? 0} · failed {summary?.records_last_7d.failed ?? 0}
             </span>
           </div>
         </Card>
@@ -118,39 +198,48 @@ export function WorkbenchPage() {
       <div className="grid2" style={{ alignItems: 'start' }}>
         <Card
           title="今日待办"
-          actions={<Chip tone="outline">3 项</Chip>}
+          actions={
+            <Chip tone="outline">{summary ? `${summary.todo_items.length} 项` : '…'}</Chip>
+          }
           bodyStyle={{ padding: '4px 16px 8px' }}
         >
-          <div className="task" onClick={() => navigate('/publish')}>
-            <div className="ti">
-              <Clock size={14} />
-            </div>
-            <div className="tx">
-              <b>「AI 工具越用越笨」的 3 个真实原因</b>
-              <span>排期 18:00 · 小红书 + 抖音</span>
-            </div>
-            <Chip tone="warn">待发</Chip>
-          </div>
-          <div className="task" onClick={() => navigate('/chat')}>
-            <div className="ti">
-              <ArrowUp size={14} />
-            </div>
-            <div className="tx">
-              <b>补完选题「我用 3 个 Agent 砍掉一半内容流程」</b>
-              <span>进行中 · 已写 60%</span>
-            </div>
-            <Chip tone="info">草稿</Chip>
-          </div>
-          <div className="task" onClick={() => navigate('/accounts')}>
-            <div className="ti">
-              <User size={14} />
-            </div>
-            <div className="tx">
-              <b>重新验证抖音登录态</b>
-              <span>6 小时后过期 · 需短信验证码</span>
-            </div>
-            <Chip tone="danger">阻塞</Chip>
-          </div>
+          {summary === null ? (
+            failed ? (
+              <p className="mut" style={{ padding: '10px 0', fontSize: 12.5 }}>
+                待办随概览一起没拉到，刷新再试。
+              </p>
+            ) : (
+              <div className="stack" style={{ gap: 8, padding: '10px 0' }}>
+                {[0, 1, 2].map((i) => (
+                  <Skeleton key={i} width="88%" height={18} />
+                ))}
+              </div>
+            )
+          ) : summary.todo_items.length === 0 ? (
+            <EmptyState
+              title="今天没有待办"
+              description="排期、进行中选题、今日日程、待处理热点都是空的。"
+              actionLabel="去选题库"
+              onAction={() => navigate('/topics')}
+            />
+          ) : (
+            summary.todo_items.map((item) => {
+              const meta = TODO_META[item.kind]
+              const Icon = meta.icon
+              return (
+                <div className="task" key={`${item.kind}-${item.title}`} onClick={() => navigate(item.to)}>
+                  <div className="ti">
+                    <Icon size={14} />
+                  </div>
+                  <div className="tx">
+                    <b>{item.title}</b>
+                    <span>{meta.sub}</span>
+                  </div>
+                  <Chip tone={meta.tone}>{meta.label}</Chip>
+                </div>
+              )
+            })
+          )}
         </Card>
 
         <Card
@@ -195,7 +284,7 @@ export function WorkbenchPage() {
               </div>
               <div>
                 <b>看数据</b>
-                <span>昨日 3 条表现回收完成</span>
+                <span>录入表现 · 复盘沉淀（下方有看板）</span>
               </div>
             </button>
           </div>
@@ -273,35 +362,63 @@ export function WorkbenchPage() {
             </Button>
           }
         >
-          <div className="row" style={{ gap: 10, flexWrap: 'wrap' }}>
-            <div style={{ flex: 1, minWidth: 120 }}>
-              <div className="mut2" style={{ fontSize: 11, marginBottom: 5 }}>
-                图文
-              </div>
-              <div className="row" style={{ gap: 5, flexWrap: 'wrap' }}>
-                <Chip tone="outline">去AI感改写</Chip>
-                <Chip tone="outline">字数裁剪</Chip>
-                <Chip tone="accent">门禁通过 2/2</Chip>
-              </div>
+          {summary === null ? (
+            <div className="stack" style={{ gap: 8 }}>
+              <Skeleton width="90%" height={18} />
+              <Skeleton width="60%" height={18} />
             </div>
-            <div style={{ flex: 1, minWidth: 120 }}>
-              <div className="mut2" style={{ fontSize: 11, marginBottom: 5 }}>
-                视频
+          ) : (
+            <div className="stack" style={{ gap: 10 }}>
+              <div className="row" style={{ gap: 10, flexWrap: 'wrap' }}>
+                <div style={{ flex: 1, minWidth: 120 }}>
+                  <div className="mut2" style={{ fontSize: 11, marginBottom: 5 }}>
+                    近 7 天发送成功
+                  </div>
+                  <Chip tone="accent">{summary.records_last_7d.sent} 条</Chip>
+                </div>
+                <div style={{ flex: 1, minWidth: 120 }}>
+                  <div className="mut2" style={{ fontSize: 11, marginBottom: 5 }}>
+                    近 7 天发送失败
+                  </div>
+                  <Chip tone={summary.records_last_7d.failed > 0 ? 'danger' : 'outline'}>
+                    {summary.records_last_7d.failed} 条
+                  </Chip>
+                </div>
               </div>
-              <div className="row" style={{ gap: 5, flexWrap: 'wrap' }}>
-                <Chip tone="outline">自动字幕</Chip>
-                <Chip tone="outline">横转竖</Chip>
-                <Chip tone="warn">画质待确认</Chip>
-              </div>
+              {summary.records_last_7d.failed > 0 ? (
+                <div className="sysfile danger" style={{ marginBottom: 0 }}>
+                  有失败记录
+                  <Button size="sm" variant="ghost" onClick={() => navigate('/publish')}>
+                    去发布中心看原因
+                  </Button>
+                </div>
+              ) : null}
+              <div className="hr" />
+              <button
+                type="button"
+                className="mut"
+                style={{
+                  fontSize: 12,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 7,
+                  background: 'none',
+                  border: 0,
+                  padding: 0,
+                  cursor: 'pointer',
+                  color: 'var(--muted)',
+                }}
+                onClick={scrollToDashboard}
+              >
+                <TrendingUp size={14} style={{ color: 'var(--accent)' }} />
+                数据看板见下方（真实录入数据）
+              </button>
             </div>
-          </div>
-          <div className="hr" />
-          <div className="mut" style={{ fontSize: 12, display: 'flex', alignItems: 'center', gap: 7 }}>
-            <Check size={14} style={{ color: 'var(--accent)' }} />
-            昨日 3 条内容数据已回收，2 条有效结构沉淀进画像
-          </div>
+          )}
         </Card>
       </div>
+
+      <DashboardSection />
     </div>
   )
 }

@@ -5,11 +5,26 @@ import type {
   AudienceResult,
   CompetitorResult,
   DiagnoseResponse,
+  Metric,
+  MetricInput,
+  RecentRecord,
+  RoiEntry,
+  RoiInput,
+  RoiSummary,
+  Snapshot,
+  SnapshotInput,
   StrategyResult,
 } from './types'
 
 /** 写请求必须显式带 Content-Type：地基的跨站写中间件（SPEC-01 §8）要求。 */
 const JSON_HEADERS = { 'Content-Type': 'application/json' } as const
+
+function qs(params: Record<string, string | number | undefined>): string {
+  const parts = Object.entries(params)
+    .filter(([, v]) => v !== undefined && v !== '')
+    .map(([k, v]) => `${k}=${encodeURIComponent(String(v))}`)
+  return parts.length ? `?${parts.join('&')}` : ''
+}
 
 export const analyticsApi = {
   competitor: (text: string, profile_id?: string) =>
@@ -51,4 +66,25 @@ export const analyticsPlanApi = {
       { brief, brand, profile_id },
       { headers: JSON_HEADERS },
     ),
+}
+
+/** SPEC-15 §2 · M5 数据录入（账号快照 / 内容表现 / 投入台账），真实回收的第一步 */
+export const attributionApi = {
+  listSnapshots: (platform = '') =>
+    api.get<{ items: Snapshot[]; total: number }>(`/attribution/snapshots${qs({ platform })}`),
+
+  createSnapshot: (body: SnapshotInput) =>
+    api.post<Snapshot>('/attribution/snapshots', body, { headers: JSON_HEADERS }),
+
+  /** 表现录入下拉：最近 20 条发布记录（左联草稿取标题） */
+  recordsRecent: () =>
+    api.get<{ items: RecentRecord[]; total: number }>('/attribution/records-recent'),
+
+  createMetric: (body: MetricInput) =>
+    api.post<Metric>('/attribution/metrics', body, { headers: JSON_HEADERS }),
+
+  createRoi: (body: RoiInput) =>
+    api.post<RoiEntry>('/attribution/roi', body, { headers: JSON_HEADERS }),
+
+  roiSummary: () => api.get<RoiSummary>('/attribution/roi/summary?days=30'),
 }
