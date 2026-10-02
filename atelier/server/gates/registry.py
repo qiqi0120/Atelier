@@ -32,12 +32,14 @@ _loaded = False
 #: 已经被 reload 过的内置模块（避免每次 ensure 都 reload）
 _reloaded: set[str] = set()
 
-#: SPEC-01 §5 的 4 个内置门禁（M1 交付）
+#: SPEC-01 §5 的 4 个内置门禁（M1 交付）+ M3 的 visual_qc（SPEC-13 §0 D3，
+#: 按 PLAN-M2 §3「新门禁注册进 gates/registry.py」——只登记模块名，逻辑在各自文件）
 BUILTIN_MODULES: tuple[str, ...] = (
     "ai_flavor",
     "compliance",
     "secret_scan",
     "wordcount",
+    "visual_qc",
 )
 
 

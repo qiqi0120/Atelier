@@ -308,11 +308,12 @@ def _no_cache():
 # ---------------------------------------------------------------- 1 技能加载
 
 
-def test_loader_parses_all_12_skills():
+def test_loader_parses_all_49_skills():
+    """M3（SPEC-13）后 12 + 37 = 49 个技能；新增一批时同步改这里。"""
     result = loader.scan(no_cache=True)
     ids = [s.id for s in result.skills]
-    assert len(ids) == 12, f"应加载 12 个技能，实际 {len(ids)}：{ids}"
-    assert len(set(ids)) == 12, "技能 id 不得重复"
+    assert len(ids) == 49, f"应加载 49 个技能，实际 {len(ids)}：{ids}"
+    assert len(set(ids)) == len(ids), "技能 id 不得重复"
     assert [i.reason for i in result.issues] == [], f"加载问题：{result.issues}"
     for s in result.skills:
         assert s.layer in loader.LAYERS
@@ -322,9 +323,11 @@ def test_loader_parses_all_12_skills():
         assert isinstance(s.required_keys, list)
         assert isinstance(s.paid, bool)
     paid = {s.id for s in result.skills if s.paid}
-    assert paid == {"one-video", "aigc-image"}, f"付费技能集合不符：{paid}"
+    # M3 起 tts/asr/multi-voice 按量计费（SPEC-13 §1.3）
+    assert paid == {"one-video", "aigc-image", "tts", "asr", "multi-voice"}, f"付费技能集合不符：{paid}"
     keyed = {s.id for s in result.skills if s.required_keys}
-    assert keyed == {"one-video", "aigc-image"}, f"需密钥技能集合不符：{keyed}"
+    # M3 起 tts/asr/multi-voice 也需密钥（SPEC-13 §1.3）
+    assert keyed == {"one-video", "aigc-image", "tts", "asr", "multi-voice"}, f"需密钥技能集合不符：{keyed}"
     assert sum(1 for s in result.skills if s.script) >= 6, "至少 6 个技能要有 run.py"
 
 
@@ -387,8 +390,8 @@ def test_capabilities_have_no_dead_links(client):
             if item["skill_id"] is not None:
                 assert item["skill_id"] in skill_ids, f"死链：{item['id']} → {item['skill_id']}"
                 seen.append(item["skill_id"])
-    assert set(seen) == skill_ids, f"12 个技能应全部进能力地图，缺 {skill_ids - set(seen)}"
-    assert len(seen) == 12
+    assert set(seen) == skill_ids, f"全部技能应进能力地图，缺 {skill_ids - set(seen)}"
+    assert len(seen) == 49
     assert manifest.validate_no_dead_links([], loader.scan().skills) == []
 
 
@@ -634,11 +637,12 @@ def test_invalid_enum_values_are_reported_not_crashed(tmp_path):
 
 def test_skills_list_omits_body_markdown(client):
     body = client.get("/api/skills").json()
-    assert body["count"] == 12
+    assert body["count"] == 49  # M3（SPEC-13）后 12 + 37
     for s in body["skills"]:
         assert "body_markdown" not in s, "列表接口不得带全文，避免响应过大"
         assert s["id"] and s["name"] and s["trigger"]
-    assert client.get("/api/skills", params={"layer": "制作"}).json()["count"] == 8
+    # M1 的 8 个制作技能 + M3 新增 37 个
+    assert client.get("/api/skills", params={"layer": "制作"}).json()["count"] == 45
     assert client.get("/api/skills", params={"layer": "策划"}).json()["count"] == 1
     detail = client.get("/api/skills/de-ai").json()
     assert "去 AI 感" in detail["body_markdown"], "详情必须含 SKILL.md 全文"

@@ -25,9 +25,10 @@ def _item(report: GateReport, gate: str) -> GateItem:
 
 
 class TestRegistry:
-    def test_four_builtin_gates_registered(self) -> None:
+    def test_builtin_gates_registered(self) -> None:
+        # M3 起 +visual_qc（SPEC-13 §0 D3），共 5 个内置门禁
         assert {g["id"] for g in list_gates()} == {
-            "ai_flavor", "compliance", "secret_scan", "wordcount"
+            "ai_flavor", "compliance", "secret_scan", "wordcount", "visual_qc"
         }
 
     def test_no_load_errors(self) -> None:
@@ -44,7 +45,7 @@ class TestRegistry:
         assert get_gate("没有这个") is None
 
     def test_run_all_gates_by_default(self) -> None:
-        assert len(run_gates(GateInput.of(CLEAN)).items) == 4
+        assert len(run_gates(GateInput.of(CLEAN)).items) == 5  # 含 M3 的 visual_qc
 
     def test_run_selected_gate(self) -> None:
         report = run_gates(GateInput.of(CLEAN), gate_ids=["secret_scan"])
@@ -99,7 +100,7 @@ class TestRegistry:
         assert reg._registry == {}, "clear() 应清空注册表"
         # list_gates()/run_gates() 会顺手把内置门禁装回来
         assert {g["id"] for g in list_gates()} == {
-            "ai_flavor", "compliance", "secret_scan", "wordcount"
+            "ai_flavor", "compliance", "secret_scan", "wordcount", "visual_qc"
         }
 
 
@@ -319,7 +320,7 @@ class TestReport:
         d = report.to_dict()
         assert d["blocked"] is True
         assert d["summary"]["blocked_items"] >= 2
-        assert len(d["items"]) == 4
+        assert len(d["items"]) == 5  # M3 起 +visual_qc
         assert all("severity" in i and "fix_hint" in i for i in d["items"])
 
     def test_fix_hints_deduped(self) -> None:

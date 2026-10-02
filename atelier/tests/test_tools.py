@@ -78,7 +78,7 @@ class TestGateRun:
     async def test_clean_content_passes(self, atelier_root: Path) -> None:
         r = await tools.atelier_gate_run(CLEAN, platform="xhs")
         assert r["blocked"] is False
-        assert len(r["items"]) == 4
+        assert len(r["items"]) == 5  # M3 起 +visual_qc
         assert "可以调用" in r["instruction"]
 
     async def test_blocked_returns_flag_and_hints(self, atelier_root: Path) -> None:
@@ -108,7 +108,7 @@ class TestGateRun:
 
     async def test_summary_shape(self, atelier_root: Path) -> None:
         r = await tools.atelier_gate_run(CLEAN, platform="xhs")
-        assert r["summary"]["total"] == 4
+        assert r["summary"]["total"] == 5  # M3 起 +visual_qc
         assert r["summary"]["blocked_items"] == 0
 
 

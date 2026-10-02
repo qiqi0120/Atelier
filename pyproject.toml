@@ -13,6 +13,7 @@ dependencies = [
   "markdown-it-py>=3.0",
   "pyyaml>=6.0",
   "pillow>=11.0",
+  "pypdf>=4.0",
 ]
 
 [dependency-groups]

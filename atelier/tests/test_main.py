@@ -91,10 +91,11 @@ class TestAppFactory:
         assert shown and "secret-value" not in shown
         assert "…" in shown
 
-    def test_meta_lists_four_gates(self, client: TestClient) -> None:
+    def test_meta_lists_builtin_gates(self, client: TestClient) -> None:
         body = client.get(f"{API_PREFIX}/meta").json()
+        # M3 起共 5 个内置门禁（+visual_qc，SPEC-13 §0 D3）
         assert {g["id"] for g in body["gates"]} == {
-            "ai_flavor", "compliance", "secret_scan", "wordcount"
+            "ai_flavor", "compliance", "secret_scan", "wordcount", "visual_qc"
         }
         assert body["gate_errors"] == {}
 

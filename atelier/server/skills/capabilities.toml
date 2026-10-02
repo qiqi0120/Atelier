@@ -57,6 +57,194 @@ id = "aigc-image"
 group = "做内容 · 要成品"
 icon = "image"
 
+# ---------------------------------------------------------- M3 制作能力扩展（SPEC-13）
+# 37 项新增技能全部挂「做内容 · 要成品」：都是「给素材 → 出成品」的形态。
+
+[[items]]
+id = "quote-card"
+group = "做内容 · 要成品"
+icon = "quote"
+
+[[items]]
+id = "poster"
+group = "做内容 · 要成品"
+icon = "image"
+
+[[items]]
+id = "chart"
+group = "做内容 · 要成品"
+icon = "chart"
+
+[[items]]
+id = "infographic"
+group = "做内容 · 要成品"
+icon = "layout"
+
+[[items]]
+id = "compare"
+group = "做内容 · 要成品"
+icon = "columns"
+
+[[items]]
+id = "mindmap"
+group = "做内容 · 要成品"
+icon = "git-branch"
+
+[[items]]
+id = "meme"
+group = "做内容 · 要成品"
+icon = "smile"
+
+[[items]]
+id = "ecommerce-visual"
+group = "做内容 · 要成品"
+icon = "shopping-bag"
+
+[[items]]
+id = "img-enhance"
+group = "做内容 · 要成品"
+icon = "image-plus"
+
+[[items]]
+id = "img-resize"
+group = "做内容 · 要成品"
+icon = "crop"
+
+[[items]]
+id = "img-decorate"
+group = "做内容 · 要成品"
+icon = "stamp"
+
+[[items]]
+id = "chroma-key"
+group = "做内容 · 要成品"
+icon = "scissors"
+
+[[items]]
+id = "tts"
+group = "做内容 · 要成品"
+icon = "mic"
+
+[[items]]
+id = "asr"
+group = "做内容 · 要成品"
+icon = "captions"
+
+[[items]]
+id = "multi-voice"
+group = "做内容 · 要成品"
+icon = "users"
+
+[[items]]
+id = "voice-clone"
+group = "做内容 · 要成品"
+icon = "audio-waveform"
+
+[[items]]
+id = "ai-music"
+group = "做内容 · 要成品"
+icon = "music"
+
+[[items]]
+id = "audio-denoise"
+group = "做内容 · 要成品"
+icon = "volume-x"
+
+[[items]]
+id = "audio-mix"
+group = "做内容 · 要成品"
+icon = "sliders"
+
+[[items]]
+id = "audio-visualize"
+group = "做内容 · 要成品"
+icon = "activity"
+
+[[items]]
+id = "sub-trans"
+group = "做内容 · 要成品"
+icon = "languages"
+
+[[items]]
+id = "clip-cut"
+group = "做内容 · 要成品"
+icon = "scissors"
+
+[[items]]
+id = "aspect-crop"
+group = "做内容 · 要成品"
+icon = "rectangle-vertical"
+
+[[items]]
+id = "album-video"
+group = "做内容 · 要成品"
+icon = "images"
+
+[[items]]
+id = "beat-cut"
+group = "做内容 · 要成品"
+icon = "music-4"
+
+[[items]]
+id = "intro-outro"
+group = "做内容 · 要成品"
+icon = "film"
+
+[[items]]
+id = "live-highlights"
+group = "做内容 · 要成品"
+icon = "radio"
+
+[[items]]
+id = "video-chapters"
+group = "做内容 · 要成品"
+icon = "list"
+
+[[items]]
+id = "ai-drama"
+group = "做内容 · 要成品"
+icon = "clapperboard"
+
+[[items]]
+id = "video-to-article"
+group = "做内容 · 要成品"
+icon = "file-text"
+
+[[items]]
+id = "pdf-extract"
+group = "做内容 · 要成品"
+icon = "file-input"
+
+[[items]]
+id = "paper-read"
+group = "做内容 · 要成品"
+icon = "book-open"
+
+[[items]]
+id = "novel-writer"
+group = "做内容 · 要成品"
+icon = "pen-tool"
+
+[[items]]
+id = "longform-outline"
+group = "做内容 · 要成品"
+icon = "list-tree"
+
+[[items]]
+id = "framework"
+group = "做内容 · 要成品"
+icon = "frame"
+
+[[items]]
+id = "data-report"
+group = "做内容 · 要成品"
+icon = "bar-chart"
+
+[[items]]
+id = "doc-convert"
+group = "做内容 · 要成品"
+icon = "file-output"
+
 # ---------------------------------------------------------- 做运营 · 要动作
 
 [[items]]
