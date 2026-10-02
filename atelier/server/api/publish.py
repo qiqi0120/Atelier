@@ -54,6 +54,7 @@ from ..publish.adapt import PLATFORM_LIMITS, blank_variant, platform_meta, recou
 from ..publish.platforms import get_adapter, known_platforms
 from ..publish.precheck import precheck_blocked, run_precheck
 from ..publish.wordcount import count_platform_chars, crop_to_limit
+from ..topics import service as topic_service
 
 log = logging.getLogger("atelier.api.publish")
 
@@ -74,6 +75,9 @@ class DraftCreate(BaseModel):
     topic_tags: list[str] = Field(default_factory=list)
     project: str | None = None
     attachments: list[str] = Field(default_factory=list)
+    #: 关联选题 / 计划发布日（SPEC-10 §2；``""`` = 不关联）
+    topic_id: str | None = None
+    scheduled_date: str | None = None
 
 
 class DraftPatch(BaseModel):
@@ -85,6 +89,8 @@ class DraftPatch(BaseModel):
     attachments: list[str] | None = None
     variants: list[dict[str, Any]] | None = None
     project: str | None = None
+    topic_id: str | None = None
+    scheduled_date: str | None = None
 
 
 class AdaptBody(BaseModel):
@@ -125,6 +131,19 @@ def _now() -> str:
     return utcnow()
 
 
+def _norm_topic_link(topic_id: str | None) -> str | None:
+    """规范化 ``topic_id``（SPEC-10 §0 D5）：None/``""`` → None；否则选题必须存在。"""
+    if not topic_id:
+        return None
+    topic_service.get_topic(topic_id)  # 不存在 → NotFound(404)
+    return topic_id
+
+
+def _norm_scheduled_date(value: str | None) -> str | None:
+    """规范化 ``scheduled_date``（D6）：复用选题 due_date 的零填充 ISO 校验。"""
+    return topic_service.validate_due_date(value) or None
+
+
 def _now_dt() -> datetime:
     from ..core.models import utcnow as models_utcnow
 
@@ -147,6 +166,8 @@ def _row_to_draft(row: Any) -> PublishDraft:
         topic_tags=json.loads(row["topic_tags"] or "[]"),
         variants=variants,
         attachments=json.loads(row["attachments"] or "[]"),
+        topic_id=row["topic_id"],
+        scheduled_date=row["scheduled_date"],
         created_at=datetime.fromisoformat(str(row["created_at"])),
         updated_at=datetime.fromisoformat(str(row["updated_at"])),
     )
@@ -167,17 +188,20 @@ def save_draft(d: PublishDraft) -> PublishDraft:
     """整份落盘（UPSERT）。``variants`` / ``attachments`` 存 JSON。"""
     d.updated_at = _now_dt()
     get_conn().execute(
-        """INSERT INTO publish_drafts (id, project, title, body, topic_tags, variants, attachments, created_at, updated_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """INSERT INTO publish_drafts (id, project, title, body, topic_tags, variants, attachments,
+                                       topic_id, scheduled_date, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
            ON CONFLICT(id) DO UPDATE SET
              project=excluded.project, title=excluded.title, body=excluded.body,
              topic_tags=excluded.topic_tags, variants=excluded.variants,
-             attachments=excluded.attachments, updated_at=excluded.updated_at""",
+             attachments=excluded.attachments, topic_id=excluded.topic_id,
+             scheduled_date=excluded.scheduled_date, updated_at=excluded.updated_at""",
         (
             d.id, d.project, d.title, d.body,
             json.dumps(d.topic_tags, ensure_ascii=False),
             json.dumps([to_dict(v) for v in d.variants], ensure_ascii=False),
             json.dumps(d.attachments, ensure_ascii=False),
+            d.topic_id, d.scheduled_date,
             d.created_at.isoformat(), d.updated_at.isoformat(),
         ),
     )
@@ -193,6 +217,8 @@ def list_drafts(limit: int = 50) -> list[PublishDraft]:
 
 
 def create_draft(body: DraftCreate) -> PublishDraft:
+    topic_id = _norm_topic_link(body.topic_id)
+    scheduled_date = _norm_scheduled_date(body.scheduled_date)
     d = PublishDraft(
         id=f"pd_{uuid.uuid4().hex[:12]}",
         project=body.project,
@@ -201,6 +227,8 @@ def create_draft(body: DraftCreate) -> PublishDraft:
         topic_tags=list(body.topic_tags),
         variants=[],
         attachments=list(body.attachments),
+        topic_id=topic_id,
+        scheduled_date=scheduled_date,
         created_at=_now_dt(),
         updated_at=_now_dt(),
     )
@@ -297,6 +325,10 @@ def patch_draft(draft_id: str, body: DraftPatch) -> dict[str, Any]:
         d.attachments = list(body.attachments or [])
     if "project" in data:
         d.project = body.project
+    if "topic_id" in data:
+        d.topic_id = _norm_topic_link(body.topic_id)  # "" 清空；坏 id → 404（SPEC-10 D5）
+    if "scheduled_date" in data:
+        d.scheduled_date = _norm_scheduled_date(body.scheduled_date)  # "" 清空（D6）
     if "variants" in data:
         variants: list[PlatformVariant] = []
         for raw in body.variants or []:

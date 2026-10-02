@@ -68,7 +68,9 @@ def _d(offset: int) -> str:
 class TestSchemaV4:
     def test_version_and_tables(self, client: TestClient) -> None:
         conn = db.get_conn()
-        assert db.schema_version(conn) == db.SCHEMA_VERSION == 4
+        # calendar_events 是 v4 引入的（SPEC-09 §1）；当前版本跟随 SCHEMA_VERSION（v5 起，SPEC-10）
+        assert db.schema_version(conn) == db.SCHEMA_VERSION
+        assert db.schema_version(conn) >= 4
         assert "calendar_events" in db.table_names(conn)
         idx = {r[1] for r in conn.execute("PRAGMA index_list(calendar_events)").fetchall()}
         assert "idx_calendar_date" in idx
@@ -187,6 +189,47 @@ class TestMonthView:
         assert client.get("/api/calendar", params={"month": "垃圾"}, headers=JSON).status_code == 422
         r = client.get("/api/calendar", headers=JSON)  # 缺省当月
         assert r.status_code == 200 and len(r.json()["month"]) == 7
+
+    def test_drafts_and_topic_stages(self, client: TestClient) -> None:
+        """SPEC-10 §2：排期草稿入当月 drafts；选题 stage 三态推导；删选题悬空降级。"""
+        tid = _mk_topic(client, title="排期选题", source="calendar", due_date="2026-10-18")["id"]
+
+        # 无关联草稿 → topic；drafts 空
+        oct_ = client.get("/api/calendar", params={"month": "2026-10"}, headers=JSON).json()
+        assert oct_["topics"][0]["stage"] == "topic" and oct_["topics"][0]["draft_id"] is None
+        assert oct_["drafts"] == []
+
+        # 关联 + 排期 → 待发（ready），选题与草稿两侧都能看到
+        did = client.post(
+            "/api/publish/drafts", headers=JSON,
+            json={"title": "排期草稿", "topic_id": tid, "scheduled_date": "2026-10-20"},
+        ).json()["id"]
+        oct_ = client.get("/api/calendar", params={"month": "2026-10"}, headers=JSON).json()
+        assert oct_["topics"][0]["stage"] == "ready" and oct_["topics"][0]["draft_id"] == did
+        assert oct_["drafts"] == [{
+            "id": did, "title": "排期草稿", "scheduled_date": "2026-10-20",
+            "topic_id": tid, "topic_title": "排期选题", "stage": "ready",
+        }]
+        # 排期在 11 月的草稿不串进 10 月
+        nov = client.get("/api/calendar", params={"month": "2026-11"}, headers=JSON).json()
+        assert nov["drafts"] == []
+
+        # 有发布记录 → 已发（published）
+        with db.db_session() as conn:
+            conn.execute(
+                "INSERT INTO publish_records (id, draft_id, platform, status, created_at)"
+                " VALUES ('pr1', ?, 'dy', 'published', ?)",
+                (did, db.utcnow()),
+            )
+        oct_ = client.get("/api/calendar", params={"month": "2026-10"}, headers=JSON).json()
+        assert oct_["topics"][0]["stage"] == "published"
+        assert oct_["drafts"][0]["stage"] == "published"
+
+        # 删选题不级联：草稿保留，topic_title 降级为 None（SPEC-10 §0 D5）
+        client.delete(f"/api/topics/{tid}", headers=JSON)
+        oct_ = client.get("/api/calendar", params={"month": "2026-10"}, headers=JSON).json()
+        assert all(t["id"] != tid for t in oct_["topics"])
+        assert oct_["drafts"][0]["topic_id"] == tid and oct_["drafts"][0]["topic_title"] is None
 
 
 # --------------------------------------------------------------------------- 提醒窗口

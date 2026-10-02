@@ -75,10 +75,13 @@ const MONTH = (month: string): MonthView => ({
       status: 'todo',
       decode: '',
       due_date: `${month}-09`,
+      stage: 'topic',
+      draft_id: null,
       created_at: '2026-10-02T10:00:00+00:00',
       updated_at: '2026-10-02T10:00:00+00:00',
     },
   ],
+  drafts: [],
 })
 
 const UPCOMING: UpcomingResponse = {
@@ -103,6 +106,7 @@ function renderPage() {
       <Routes>
         <Route path="/calendar" element={<CalendarPage />} />
         <Route path="/topics" element={<div>选题库页</div>} />
+        <Route path="/publish" element={<div>发布中心页</div>} />
       </Routes>
     </MemoryRouter>,
   )
@@ -218,5 +222,67 @@ describe('内容日历 · 工具条动作', () => {
     expect(screen.getByText(/已入库/)).toBeInTheDocument()
     expect(screen.getByText('建议甲')).toBeInTheDocument()
     expect(screen.getByText('建议乙')).toBeInTheDocument()
+  })
+})
+
+describe('内容日历 · 状态流转（SPEC-10 §3）', () => {
+  function mockLifecycle() {
+    const month = currentMonth()
+    apiMock.get.mockImplementation(async (url: string) => {
+      if (url.startsWith('/calendar/upcoming')) return UPCOMING
+      return {
+        month,
+        events: [],
+        topics: [
+          {
+            id: 'topic-1',
+            profile_id: null,
+            title: '双11 开箱：300 元内好物实测',
+            angle: '',
+            source: 'calendar',
+            source_ref: '双11',
+            status: 'todo',
+            decode: '',
+            due_date: `${month}-09`,
+            stage: 'ready',
+            draft_id: 'pd1',
+            created_at: '2026-10-02T10:00:00+00:00',
+            updated_at: '2026-10-02T10:00:00+00:00',
+          },
+        ],
+        drafts: [
+          {
+            id: 'pd1',
+            title: '排期草稿',
+            scheduled_date: `${month}-20`,
+            topic_id: 'topic-1',
+            topic_title: '双11 开箱：300 元内好物实测',
+            stage: 'ready',
+          },
+        ],
+      }
+    })
+  }
+
+  it('选题条目带待发徽标；排期草稿条目可溯源到选题；点击分流到 /publish', async () => {
+    const user = userEvent.setup()
+    mockLifecycle()
+    renderPage()
+    await waitFor(() => expect(screen.getByTestId('cal-grid')).toBeInTheDocument())
+    const ready = screen.getByTitle(/选题 · 双11 开箱：300 元内好物实测（待发）/)
+    expect(ready).toHaveTextContent('⟨待发⟩')
+    const draftEv = screen.getByTitle(/草稿 · 排期草稿（选题：双11 开箱：300 元内好物实测）/)
+    expect(draftEv).toHaveTextContent('⟨待发⟩')
+    await user.click(ready)
+    expect(screen.getByText('发布中心页')).toBeInTheDocument()
+  })
+
+  it('stage=topic 的选题条目仍去 /topics（回归）', async () => {
+    const user = userEvent.setup()
+    mockData()
+    renderPage()
+    await waitFor(() => expect(screen.getByTestId('cal-grid')).toBeInTheDocument())
+    await user.click(screen.getByTitle(/选题 · 双11 开箱：300 元内好物实测/))
+    expect(screen.getByText('选题库页')).toBeInTheDocument()
   })
 })

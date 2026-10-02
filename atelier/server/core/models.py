@@ -238,6 +238,10 @@ class PublishDraft(BaseModel):
     topic_tags: list[str]
     variants: list[PlatformVariant]
     attachments: list[str]
+    #: 关联选题（可空，SPEC-10 §0 D5；删选题不级联，悬空引用由读侧降级）
+    topic_id: str | None = None
+    #: 计划发布日 YYYY-MM-DD（可空；人工排期上日历，非平台定时发送——那是 M4 F-G20）
+    scheduled_date: str | None = None
     created_at: datetime
     updated_at: datetime
 

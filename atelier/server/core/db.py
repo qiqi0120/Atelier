@@ -58,7 +58,7 @@ TABLE_NAMES: tuple[str, ...] = (
     "calendar_events",
 )
 
-SCHEMA_VERSION = 4
+SCHEMA_VERSION = 5
 
 _DDL: tuple[str, ...] = (
     """CREATE TABLE IF NOT EXISTS profiles (
@@ -86,7 +86,8 @@ _DDL: tuple[str, ...] = (
 )""",
     """CREATE TABLE IF NOT EXISTS publish_drafts (
   id TEXT PRIMARY KEY, project TEXT, title TEXT, body TEXT, topic_tags TEXT,
-  variants TEXT, attachments TEXT, created_at TEXT, updated_at TEXT
+  variants TEXT, attachments TEXT, topic_id TEXT, scheduled_date TEXT,
+  created_at TEXT, updated_at TEXT
 )""",
     """CREATE TABLE IF NOT EXISTS publish_records (
   id TEXT PRIMARY KEY, draft_id TEXT, platform TEXT NOT NULL, status TEXT NOT NULL,
@@ -116,7 +117,7 @@ _EXPECTED: dict[str, tuple[str, ...]] = {
     ),
     "publish_drafts": (
         "id", "project", "title", "body", "topic_tags", "variants", "attachments",
-        "created_at", "updated_at",
+        "topic_id", "scheduled_date", "created_at", "updated_at",
     ),
     "publish_records": (
         "id", "draft_id", "platform", "status", "title", "error", "error_code",
@@ -258,12 +259,22 @@ def _apply_v4(conn: sqlite3.Connection) -> None:
     conn.execute("CREATE INDEX IF NOT EXISTS idx_calendar_date ON calendar_events(date)")
 
 
+def _apply_v5(conn: sqlite3.Connection) -> None:
+    """v5 · ``publish_drafts`` 扩 ``topic_id`` / ``scheduled_date``（M2 收尾，SPEC-10 §1）。
+
+    实际补列由 migrate 末尾的 ``_add_missing_columns`` 依 ``_EXPECTED`` 统一执行
+    （同 v4 给 topics 补 due_date 的先例）；本步只作版本标记，保证老库
+    ``user_version`` 前进可判。
+    """
+
+
 #: 版本号 → 迁移步骤。新增版本时只往这里加一项，不要动老步骤（SPEC-01 §7 幂等）。
 _MIGRATIONS: dict[int, Callable[[sqlite3.Connection], None]] = {
     1: _apply_v1,
     2: _apply_v2,
     3: _apply_v3,
     4: _apply_v4,
+    5: _apply_v5,
 }
 
 _local = threading.local()

@@ -14,7 +14,7 @@ import { PageHead } from '@/features/shared/PageHead'
 import { calendarApi } from './api'
 import { EventDialog } from './EventDialog'
 import { SuggestDialog } from './SuggestDialog'
-import { KIND_LABEL, KIND_PREFIX, type CalEvent, type MonthView, type UpcomingItem } from './types'
+import { KIND_LABEL, KIND_PREFIX, STAGE_LABEL, type CalEvent, type MonthDraft, type MonthTopic, type MonthView, type UpcomingItem } from './types'
 
 const pad = (n: number) => String(n).padStart(2, '0')
 
@@ -119,7 +119,7 @@ export function CalendarPage() {
   }, [view?.events])
 
   const topicsByDay = useMemo(() => {
-    const map = new Map<string, MonthView['topics']>()
+    const map = new Map<string, MonthTopic[]>()
     for (const t of view?.topics ?? []) {
       const list = map.get(t.due_date) ?? []
       list.push(t)
@@ -127,6 +127,16 @@ export function CalendarPage() {
     }
     return map
   }, [view?.topics])
+
+  const draftsByDay = useMemo(() => {
+    const map = new Map<string, MonthDraft[]>()
+    for (const d of view?.drafts ?? []) {
+      const list = map.get(d.scheduled_date) ?? []
+      list.push(d)
+      map.set(d.scheduled_date, list)
+    }
+    return map
+  }, [view?.drafts])
 
   const doSeed = async () => {
     setSeeding(true)
@@ -234,10 +244,21 @@ export function CalendarPage() {
                   <span
                     key={t.id}
                     className="ev"
-                    title={`选题 · ${t.title}（去选题库处理）`}
-                    onClick={() => navigate('/topics')}
+                    title={`选题 · ${t.title}${t.stage !== 'topic' ? `（${STAGE_LABEL[t.stage]}）` : ''}（点击去处理）`}
+                    onClick={() => navigate(t.stage === 'topic' ? '/topics' : '/publish')}
                   >
+                    {t.stage !== 'topic' ? `⟨${STAGE_LABEL[t.stage]}⟩` : ''}
                     {t.title}
+                  </span>
+                ))}
+                {(draftsByDay.get(c.iso) ?? []).map((d) => (
+                  <span
+                    key={d.id}
+                    className="ev"
+                    title={`草稿 · ${d.title}${d.topic_title ? `（选题：${d.topic_title}）` : ''}（点击去发布中心）`}
+                    onClick={() => navigate('/publish')}
+                  >
+                    ⟨{STAGE_LABEL[d.stage]}⟩{d.title}
                   </span>
                 ))}
               </div>
@@ -247,7 +268,7 @@ export function CalendarPage() {
         <div className="legend" style={{ padding: '10px 12px' }}>
           <span>
             <i className="k-wait" />
-            内容条目（选题，点击去选题库）
+            内容条目（选题 / 待发 / 已发）
           </span>
           <span>
             <i style={{ background: 'var(--surface-2)', border: '1px dashed var(--line)' }} />
@@ -256,7 +277,7 @@ export function CalendarPage() {
         </div>
       </Card>
 
-      {!loading && view && view.events.length === 0 && view.topics.length === 0 ? (
+      {!loading && view && view.events.length === 0 && view.topics.length === 0 && view.drafts.length === 0 ? (
         <Card tight>
           <EmptyState
             icon={<CalendarDays size={22} />}

@@ -21,8 +21,28 @@ export type CalEvent = {
   updated_at: string
 }
 
-/** 月视图：events = 日历节点（含跨月多日），topics = due_date 落当月的选题 */
-export type MonthView = { month: string; events: CalEvent[]; topics: Topic[] }
+/** 月视图：events = 日历节点（含跨月多日），topics = due_date 落当月的选题，
+ * drafts = scheduled_date 落当月的排期草稿（SPEC-10 §2）。 */
+export type TopicStage = 'topic' | 'ready' | 'published'
+export type MonthTopic = Topic & { stage: TopicStage; draft_id: string | null }
+
+export type MonthDraft = {
+  id: string
+  title: string
+  scheduled_date: string
+  topic_id: string | null
+  topic_title: string | null
+  stage: 'ready' | 'published'
+}
+
+export type MonthView = { month: string; events: CalEvent[]; topics: MonthTopic[]; drafts: MonthDraft[] }
+
+/** 内容条目四态流转的日历侧展示（SPEC-10 §0 D4）：草稿（未排期）不上日历 */
+export const STAGE_LABEL: Record<TopicStage, string> = {
+  topic: '选题',
+  ready: '待发',
+  published: '已发',
+}
 
 export type UpcomingItem = CalEvent & { remind_active: boolean; days_left: number }
 export type UpcomingResponse = { today: string; items: UpcomingItem[] }

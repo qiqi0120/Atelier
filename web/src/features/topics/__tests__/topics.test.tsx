@@ -9,10 +9,11 @@
  * 6. 删除二次确认
  */
 
-import { render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { MemoryRouter } from 'react-router-dom'
+import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { ApiError } from '@/lib/api'
+import { useAtelier } from '@/lib/store'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const { apiMock, ApiErrorMock } = vi.hoisted(() => {
@@ -261,5 +262,42 @@ describe('删除保护（UI-SPEC 规则：破坏性操作二次确认）', () =>
     await user.click(screen.getByRole('button', { name: '删除选题' }))
     await waitFor(() => expect(apiMock.del).toHaveBeenCalledTimes(1))
     expect(apiMock.del.mock.calls[0][0]).toBe('/topics/topic-a')
+  })
+})
+
+describe('排期与做成内容（SPEC-10 §3）', () => {
+  it('排期弹层：选日期保存 → PATCH due_date', async () => {
+    const user = userEvent.setup()
+    page()
+    await waitFor(() => expect(screen.getByTestId('topics-board')).toBeInTheDocument())
+    await user.click(screen.getByRole('button', { name: '排期：3 套通勤公式，小个子直接抄' }))
+    expect(await screen.findByText('排期')).toBeInTheDocument()
+    fireEvent.change(screen.getByLabelText(/计划发布日/), { target: { value: '2026-10-20' } })
+    await user.click(screen.getByRole('button', { name: '保存排期' }))
+    await waitFor(() => expect(apiMock.patch).toHaveBeenCalledTimes(1))
+    const [url, body] = apiMock.patch.mock.calls[0]
+    expect(url).toBe('/topics/topic-a')
+    expect(body).toMatchObject({ due_date: '2026-10-20' })
+  })
+
+  it('做成内容：填入对话输入框（含标题与画像平台）且不自动发送，跳转 /chat', async () => {
+    const user = userEvent.setup()
+    useAtelier.setState({ draftPrompt: '', draftSeq: 0 })
+    render(
+      <MemoryRouter initialEntries={['/topics']}>
+        <Routes>
+          <Route path="/topics" element={<TopicsPage />} />
+          <Route path="/chat" element={<div>对话页占位</div>} />
+        </Routes>
+      </MemoryRouter>,
+    )
+    await user.click(await screen.findByRole('button', { name: '做成内容：3 套通勤公式，小个子直接抄' }))
+    expect(await screen.findByText('对话页占位')).toBeInTheDocument()
+    const draft = useAtelier.getState().draftPrompt
+    expect(draft).toContain('3 套通勤公式，小个子直接抄')
+    expect(draft).toContain('小红书') // 画像平台进了 prompt（SPEC-10 §0 D1）
+    // 只填入不发送：没有任何 chat 发送请求（UI-SPEC 规则 1）
+    const sends = apiMock.post.mock.calls.filter(([u]) => String(u).includes('/chat'))
+    expect(sends).toHaveLength(0)
   })
 })

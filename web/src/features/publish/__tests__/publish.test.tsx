@@ -6,7 +6,7 @@
  * 所以这里断言的是「后端给 61/55，前端就显示 61/55 并标红」。
  */
 
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -69,7 +69,9 @@ const PLATFORMS: PlatformMeta[] = [
 const DRAFT = {
   id: 'pd_1', project: null, title: '我用 3 个 Agent 把内容流程砍掉一半',
   body: '母版正文', topic_tags: ['AI工作流'],
-  variants: [XHS_OK, DY_OVER], attachments: [], created_at: '', updated_at: '',
+  variants: [XHS_OK, DY_OVER], attachments: [],
+  topic_id: null, scheduled_date: null,
+  created_at: '', updated_at: '',
 }
 
 function item(p: Partial<PrecheckItem>): PrecheckItem {
@@ -115,6 +117,9 @@ beforeEach(() => {
       const method = init?.method ?? 'GET'
       calls.push({ url: String(url), method, body: init?.body ? JSON.parse(String(init.body)) : null })
       if (String(url).includes('/publish/platforms')) return json({ platforms: PLATFORMS })
+      if (String(url).includes('/api/topics')) {
+        return json({ items: [{ id: 'topic-1', title: '关联用选题' }], total: 1 })
+      }
       if (String(url).includes('/precheck')) return json(precheckResponse)
       if (String(url).endsWith('/publish/drafts') && method === 'GET') return json({ drafts: [DRAFT] })
       if (String(url).endsWith('/publish/drafts') && method === 'POST') return json(DRAFT)
@@ -144,6 +149,49 @@ function renderPage() {
     </MemoryRouter>,
   )
 }
+
+describe('发布中心 · 排期与关联选题（SPEC-10 §3）', () => {
+  it('改计划发布日 / 关联选题 → 立即触发 PATCH 且带对应字段', async () => {
+    renderPage()
+    const dateInput = await screen.findByLabelText('计划发布日')
+    fireEvent.change(dateInput, { target: { value: '2026-11-01' } })
+    await waitFor(() =>
+      expect(
+        calls.some(
+          (c) => c.method === 'PATCH' && (c.body as Record<string, unknown>)?.scheduled_date === '2026-11-01',
+        ),
+      ).toBe(true),
+    )
+    // 关联选题下拉（候选项来自 /topics）
+    const select = screen.getByLabelText('关联选题')
+    await waitFor(() => expect((select as HTMLSelectElement).options.length).toBeGreaterThan(1))
+    fireEvent.change(select, { target: { value: 'topic-1' } })
+    await waitFor(() =>
+      expect(
+        calls.some((c) => c.method === 'PATCH' && (c.body as Record<string, unknown>)?.topic_id === 'topic-1'),
+      ).toBe(true),
+    )
+  })
+
+  it('排期后清空 → PATCH scheduled_date 为 null', async () => {
+    renderPage()
+    const dateInput = await screen.findByLabelText('计划发布日')
+    fireEvent.change(dateInput, { target: { value: '2026-11-01' } })
+    await waitFor(() =>
+      expect(
+        calls.some(
+          (c) => c.method === 'PATCH' && (c.body as Record<string, unknown>)?.scheduled_date === '2026-11-01',
+        ),
+      ).toBe(true),
+    )
+    fireEvent.change(dateInput, { target: { value: '' } })
+    await waitFor(() =>
+      expect(
+        calls.some((c) => c.method === 'PATCH' && (c.body as Record<string, unknown>)?.scheduled_date === null),
+      ).toBe(true),
+    )
+  })
+})
 
 /* ------------------------------------------------------------------ 用例 */
 

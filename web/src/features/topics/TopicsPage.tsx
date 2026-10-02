@@ -1,23 +1,28 @@
-/** SPEC-08 · 选题库页（M2-1，占位页转正）。
+/** SPEC-08 · 选题库页（M2-1，占位页转正；M2 收尾增排期/做成内容，SPEC-10 §3）。
  *
  * 布局：PageHead（搜索 + 拆解/矩阵/新建）+ 三列看板（待做/进行中/已完成）。
- * 卡片操作：评分（F-E9）· 钩子（F-E11）· 左右流转状态 · 删除（二次确认）。
+ * 卡片操作：评分（F-E9）· 钩子（F-E11）· 排期（F-E4）· 做成内容（F-E3）·
+ * 左右流转状态 · 删除（二次确认）。
  * 拆解（F-E8）与矩阵（F-E10）从顶部工具条进，生成结果落「待做」列。
  */
 
 import { useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
   ArrowLeft,
   ArrowRight,
+  CalendarPlus,
   Flame,
   LayoutGrid,
   ListChecks,
   Plus,
   Tag,
   Trash2,
+  Wand2,
 } from 'lucide-react'
 import { Button, Card, Chip, ConfirmDialog, EmptyState, Input, Modal, Field, Textarea, toast } from '@/components'
 import { PageHead } from '@/features/shared/PageHead'
+import { useAtelier } from '@/lib/store'
 import { useTopics } from './useTopics'
 import { DecodeDialog } from './DecodeDialog'
 import { MatrixDialog } from './MatrixDialog'
@@ -26,12 +31,16 @@ import { HooksDialog } from './HooksDialog'
 import { SOURCE_LABEL, STATUS_FLOW, STATUS_LABEL, type Topic, type TopicStatus } from './types'
 
 export function TopicsPage() {
+  const navigate = useNavigate()
+  const profile = useAtelier((s) => s.profile)
+  const fillPrompt = useAtelier((s) => s.fillPrompt)
   const t = useTopics()
   const [createOpen, setCreateOpen] = useState(false)
   const [decodeOpen, setDecodeOpen] = useState(false)
   const [matrixOpen, setMatrixOpen] = useState(false)
   const [scoring, setScoring] = useState<Topic | null>(null)
   const [hooking, setHooking] = useState<Topic | null>(null)
+  const [scheduling, setScheduling] = useState<Topic | null>(null)
   const [deleting, setDeleting] = useState<Topic | null>(null)
 
   const counts = useMemo(() => {
@@ -44,6 +53,15 @@ export function TopicsPage() {
     await t.create(title, angle)
     toast.ok('选题已加入「待做」列')
     setCreateOpen(false)
+  }
+
+  /** F-E3 做成内容：只填入对话输入框、不自动发送（UI-SPEC 规则 1，SPEC-10 §0 D1） */
+  const compose = (topic: Topic) => {
+    const platforms = profile?.platforms?.length ? profile.platforms.join('、') : '小红书、抖音'
+    fillPrompt(
+      `帮我把这个选题做成一条内容。\n选题：${topic.title}\n角度：${topic.angle || '（无，按你的判断补一个切口）'}\n账号平台：${platforms}\n先出 1 版完整成稿（含标题），再给 3 个备选开头钩子。`,
+    )
+    navigate('/chat')
   }
 
   return (
@@ -117,6 +135,8 @@ export function TopicsPage() {
                         topic={topic}
                         onScore={() => setScoring(topic)}
                         onHooks={() => setHooking(topic)}
+                        onSchedule={() => setScheduling(topic)}
+                        onCompose={() => compose(topic)}
                         onMove={(dir) => void t.move(topic, dir)}
                         onDelete={() => setDeleting(topic)}
                       />
@@ -134,6 +154,17 @@ export function TopicsPage() {
       <MatrixDialog open={matrixOpen} onClose={() => setMatrixOpen(false)} onSaved={t.refresh} />
       <ScoreDialog open={scoring !== null} topic={scoring} onClose={() => setScoring(null)} />
       <HooksDialog open={hooking !== null} topic={hooking} onClose={() => setHooking(null)} />
+      <ScheduleModal
+        open={scheduling !== null}
+        topic={scheduling}
+        onClose={() => setScheduling(null)}
+        onSave={async (date) => {
+          if (!scheduling) return
+          await t.schedule(scheduling.id, date)
+          toast.ok(date ? `已排期到 ${date.slice(5)}，日历里能看到` : '已取消排期')
+          setScheduling(null)
+        }}
+      />
       <ConfirmDialog
         open={deleting !== null}
         title="删除这条选题？"
@@ -154,6 +185,8 @@ function TopicCard(props: {
   topic: Topic
   onScore: () => void
   onHooks: () => void
+  onSchedule: () => void
+  onCompose: () => void
   onMove: (dir: -1 | 1) => void
   onDelete: () => void
 }) {
@@ -179,6 +212,24 @@ function TopicCard(props: {
           <button type="button" className="iconbtn" title="标题钩子" aria-label={`钩子：${topic.title}`} onClick={props.onHooks}>
             <Tag size={15} />
           </button>
+          <button
+            type="button"
+            className="iconbtn"
+            title="排期（F-E4）"
+            aria-label={`排期：${topic.title}`}
+            onClick={props.onSchedule}
+          >
+            <CalendarPlus size={15} />
+          </button>
+          <button
+            type="button"
+            className="iconbtn"
+            title="做成内容：填入对话输入框"
+            aria-label={`做成内容：${topic.title}`}
+            onClick={props.onCompose}
+          >
+            <Wand2 size={15} />
+          </button>
           {i > 0 ? (
             <button type="button" className="iconbtn" title="往回挪" aria-label={`回退：${topic.title}`} onClick={() => props.onMove(-1)}>
               <ArrowLeft size={15} />
@@ -201,6 +252,74 @@ function TopicCard(props: {
         </div>
       </div>
     </div>
+  )
+}
+
+/** F-E4 排期弹层：设置 / 清空选题的建议发布日（SPEC-10 §3）。 */
+function ScheduleModal(props: {
+  open: boolean
+  topic: Topic | null
+  onClose: () => void
+  onSave: (date: string) => Promise<void>
+}) {
+  const [date, setDate] = useState('')
+  const [saving, setSaving] = useState(false)
+  const current = props.topic?.due_date ?? ''
+
+  const close = () => {
+    setDate('')
+    props.onClose()
+  }
+
+  const submit = async (value: string) => {
+    if (saving) return
+    setSaving(true)
+    try {
+      await props.onSave(value)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <Modal
+      open={props.open}
+      onClose={close}
+      title="排期"
+      sub={props.topic ? `「${props.topic.title}」计划在哪天发？日历与看板会同步显示。` : undefined}
+      width={420}
+      footer={
+        <>
+          {current ? (
+            <Button variant="danger" disabled={saving} onClick={() => void submit('')}>
+              取消排期
+            </Button>
+          ) : null}
+          <span style={{ flex: 1 }} />
+          <Button onClick={close}>关闭</Button>
+          <Button
+            variant="primary"
+            disabled={!date || saving}
+            disabledReason={!date ? '先选个日期' : undefined}
+            loading={saving}
+            onClick={() => void submit(date)}
+          >
+            保存排期
+          </Button>
+        </>
+      }
+    >
+      <Field label="计划发布日" help="只是日历上的计划，不会自动发布；定时发布属 M4">
+        {(id) => (
+          <Input id={id} type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+        )}
+      </Field>
+      {current ? (
+        <p className="help" style={{ margin: '8px 0 0' }}>
+          当前排期：{current}
+        </p>
+      ) : null}
+    </Modal>
   )
 }
 

@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Button, Card, Chip, toast } from '@/components'
+import { topicsApi } from '@/features/topics/api'
+import type { Topic } from '@/features/topics/types'
 import type { PublishDraft } from './types'
 
 export type MasterEditorProps = {
@@ -31,8 +33,37 @@ export function MasterEditor({ draft, onSave, onRegen, savedAt, adapting }: Mast
   const [title, setTitle] = useState(draft?.title ?? '')
   const [body, setBody] = useState(draft?.body ?? '')
   const [tag, setTag] = useState('')
+  /** 排期与关联选题：本地状态（save 响应不回写 draft，受控件须自持，同 title/body） */
+  const [scheduledDate, setScheduledDate] = useState(draft?.scheduled_date ?? '')
+  const [topicId, setTopicId] = useState(draft?.topic_id ?? '')
+  /** 关联选题的候选项：懒加载一次（SPEC-10 §6，量级 ≤200 不做分页） */
+  const [topicOptions, setTopicOptions] = useState<Topic[]>([])
   const timer = useRef<number | null>(null)
   const dirty = useRef(false)
+
+  // 切换草稿时重置本地状态（草稿切换 / 首次加载 / 适配后刷新回同步）
+  useEffect(() => {
+    setTitle(draft?.title ?? '')
+    setBody(draft?.body ?? '')
+    setScheduledDate(draft?.scheduled_date ?? '')
+    setTopicId(draft?.topic_id ?? '')
+    dirty.current = false
+  }, [draft?.id, draft?.title, draft?.body, draft?.scheduled_date, draft?.topic_id])
+
+  useEffect(() => {
+    let alive = true
+    topicsApi
+      .list()
+      .then((r) => {
+        if (alive) setTopicOptions(r.items ?? [])
+      })
+      .catch(() => {
+        /* api 层已 toast；下拉为空只是不能关联，不影响主流程 */
+      })
+    return () => {
+      alive = false
+    }
+  }, [])
 
   // 切换草稿时重置本地状态（草稿切换 / 首次加载）
   useEffect(() => {
@@ -139,6 +170,46 @@ export function MasterEditor({ draft, onSave, onRegen, savedAt, adapting }: Mast
           + 加话题
         </Button>
       </div>
+      {draft ? (
+        <div className="row" style={{ marginTop: 10, gap: 10, flexWrap: 'wrap', alignItems: 'flex-end' }}>
+          <div className="field" style={{ width: 170 }}>
+            <label htmlFor="pub-scheduled">计划发布日</label>
+            <input
+              id="pub-scheduled"
+              className="inp sm"
+              type="date"
+              value={scheduledDate}
+              aria-label="计划发布日"
+              onChange={(e) => {
+                setScheduledDate(e.target.value)
+                onSave({ scheduled_date: e.target.value || null })
+              }}
+            />
+            <span className="help">日历上按这天显示「待发」；不会自动发布</span>
+          </div>
+          <div className="field" style={{ width: 220 }}>
+            <label htmlFor="pub-topic-link">关联选题</label>
+            <select
+              id="pub-topic-link"
+              className="inp sm"
+              value={topicId}
+              aria-label="关联选题"
+              onChange={(e) => {
+                setTopicId(e.target.value)
+                onSave({ topic_id: e.target.value || null })
+              }}
+            >
+              <option value="">不关联</option>
+              {topicOptions.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.title}
+                </option>
+              ))}
+            </select>
+            <span className="help">关联后日历条目可溯源到选题</span>
+          </div>
+        </div>
+      ) : null}
       <p className="help" style={{ marginTop: 8 }} aria-live="polite">
         <span data-testid="autosave-hint">
           {savedAt ? `草稿自动保存 · ${hhmm(savedAt)}` : '停止输入 0.8 秒后自动保存'}

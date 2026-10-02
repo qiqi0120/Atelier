@@ -610,6 +610,30 @@ class TestPublishApi:
         ).status_code == 200
         assert client.get(f"/api/publish/drafts/{did}").status_code == 404
 
+    def test_draft_topic_link_and_schedule(self, client: TestClient) -> None:
+        """SPEC-10 §2：草稿可关联选题与排期；坏选题 404；空串清空；缺省不动。"""
+        tid = client.post("/api/topics", headers=JSON, json={"title": "被关联的选题"}).json()["id"]
+        did = client.post(
+            "/api/publish/drafts", headers=JSON,
+            json={"title": "排期草稿", "topic_id": tid, "scheduled_date": "2026-11-11"},
+        ).json()["id"]
+        body = client.get(f"/api/publish/drafts/{did}").json()
+        assert body["topic_id"] == tid and body["scheduled_date"] == "2026-11-11"
+        # 选题不存在 → 404（SPEC-10 §0 D5）
+        r = client.patch(f"/api/publish/drafts/{did}", headers=JSON, json={"topic_id": "topic-none"})
+        assert r.status_code == 404
+        # 非零填充日期 → 422（D6，复用选题 due_date 校验）
+        r = client.patch(f"/api/publish/drafts/{did}", headers=JSON, json={"scheduled_date": "2026-1-1"})
+        assert r.status_code == 422
+        # 缺省不动
+        patched = client.patch(f"/api/publish/drafts/{did}", headers=JSON, json={"title": "新标题"}).json()
+        assert patched["topic_id"] == tid and patched["scheduled_date"] == "2026-11-11"
+        # "" 清空（归 NULL）
+        patched = client.patch(
+            f"/api/publish/drafts/{did}", headers=JSON, json={"topic_id": "", "scheduled_date": ""}
+        ).json()
+        assert patched["topic_id"] is None and patched["scheduled_date"] is None
+
     def test_delete_draft_requires_confirm_token(self, client: TestClient) -> None:
         did = client.post("/api/publish/drafts", headers=JSON, json={"title": "x"}).json()["id"]
         # 缺 confirm 参数 → FastAPI 参数校验 422

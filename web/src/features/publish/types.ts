@@ -52,6 +52,10 @@ export type PublishDraft = {
   topic_tags: string[]
   variants: PlatformVariant[]
   attachments: string[]
+  /** 关联选题（可空，SPEC-10） */
+  topic_id: string | null
+  /** 计划发布日 YYYY-MM-DD（可空；人工排期上日历，非平台定时发送） */
+  scheduled_date: string | null
   created_at: string
   updated_at: string
 }

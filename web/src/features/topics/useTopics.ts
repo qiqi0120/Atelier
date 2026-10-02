@@ -78,6 +78,19 @@ export function useTopics() {
     [load],
   )
 
+  /** F-E4 排期：设置 / 清空（空串）建议发布日（SPEC-10 §3）。 */
+  const schedule = useCallback(
+    async (id: string, dueDate: string) => {
+      try {
+        await topicsApi.update(id, { due_date: dueDate })
+        await load()
+      } catch {
+        /* api 层已 toast */
+      }
+    },
+    [load],
+  )
+
   const byStatus = useCallback(
     (s: TopicStatus) => filtered.filter((t) => t.status === s),
     [filtered],
@@ -93,6 +106,7 @@ export function useTopics() {
     create,
     move,
     remove,
+    schedule,
     byStatus,
   }
 }

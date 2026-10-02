@@ -268,10 +268,12 @@ def events_between(start: str, end: str) -> list[dict[str, Any]]:
 
 
 def list_month(month: str = "", today: date | None = None) -> dict[str, Any]:
-    """月视图数据：``{month, events, topics}``。
+    """月视图数据：``{month, events, topics, drafts}``。
 
     events 按「与当月有重叠」判定；topics 是 ``due_date`` 落在当月的选题
-    （全状态，SPEC-09 §6：日历区分内容条目与平台活动两类）。
+    （全状态，SPEC-09 §6）；drafts 是 ``scheduled_date`` 落在当月的排期草稿
+    （SPEC-10 §2）。``stage`` 由代码按 SPEC-10 §0 D4 推导：
+    选题（无关联草稿）/ 待发（关联草稿已排期未发）/ 已发（草稿有发布记录）。
     """
     today = today or local_today()
     m = _MONTH_RE.match(month.strip()) if month else None
@@ -287,10 +289,62 @@ def list_month(month: str = "", today: date | None = None) -> dict[str, Any]:
             " AND due_date BETWEEN ? AND ? ORDER BY due_date, created_at",
             (start, end),
         ).fetchall()
+        tids = [r["id"] for r in rows]
+        linked: list[sqlite3.Row] = []
+        if tids:
+            linked = conn.execute(
+                f"SELECT * FROM publish_drafts WHERE topic_id IN ({', '.join('?' * len(tids))})"
+                " ORDER BY updated_at DESC, rowid DESC",
+                tids,
+            ).fetchall()
+        drows = conn.execute(
+            "SELECT * FROM publish_drafts WHERE scheduled_date IS NOT NULL AND scheduled_date != ''"
+            " AND scheduled_date BETWEEN ? AND ? ORDER BY scheduled_date, rowid",
+            (start, end),
+        ).fetchall()
+        draft_ids = {d["id"] for d in linked} | {d["id"] for d in drows}
+        published: set[str] = set()
+        if draft_ids:
+            recs = conn.execute(
+                "SELECT DISTINCT draft_id FROM publish_records"
+                f" WHERE draft_id IN ({', '.join('?' * len(draft_ids))})",
+                sorted(draft_ids),
+            ).fetchall()
+            published = {r["draft_id"] for r in recs}
+
+    title_of = {r["id"]: r["title"] for r in rows}
+    # 每个选题取最新一份关联草稿（linked 已按 updated_at 倒序）；悬空 topic_id 不进 primary
+    primary: dict[str, sqlite3.Row] = {}
+    for d in linked:
+        primary.setdefault(d["topic_id"], d)
+
+    topics_items: list[dict[str, Any]] = []
+    for r in rows:
+        d = primary.get(r["id"])
+        if d is None:
+            stage, draft_id = "topic", None
+        elif d["id"] in published:
+            stage, draft_id = "published", d["id"]
+        else:
+            stage, draft_id = "ready", d["id"]
+        topics_items.append({**topic_service.row_to_topic(r), "stage": stage, "draft_id": draft_id})
+
+    drafts_items = [
+        {
+            "id": d["id"],
+            "title": d["title"] or "",
+            "scheduled_date": d["scheduled_date"],
+            "topic_id": d["topic_id"],
+            "topic_title": title_of.get(d["topic_id"]),  # 删选题不级联：悬空引用降级为 None（D5）
+            "stage": "published" if d["id"] in published else "ready",
+        }
+        for d in drows
+    ]
     return {
         "month": f"{y:04d}-{mo:02d}",
         "events": events_between(start, end),
-        "topics": [topic_service.row_to_topic(r) for r in rows],
+        "topics": topics_items,
+        "drafts": drafts_items,
     }
 
 

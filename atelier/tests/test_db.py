@@ -44,14 +44,48 @@ class TestSchema:
 
     def test_schema_version_recorded(self, atelier_root: Path) -> None:
         conn = db.init_db()
-        # M2-2 起为 v4（calendar_events + topics.due_date，SPEC-09 §1）；升级版本时同步改这里
-        assert db.schema_version(conn) == db.SCHEMA_VERSION == 4
+        # M2 收尾起为 v5（publish_drafts.topic_id/scheduled_date，SPEC-10 §1）；升级版本时同步改这里
+        assert db.schema_version(conn) == db.SCHEMA_VERSION == 5
 
     def test_migration_is_idempotent(self, atelier_root: Path) -> None:
         conn = db.init_db()
         assert db.migrate(conn) == []  # 已经是最新 → 什么都不做
         assert db.migrate(conn) == []
         assert db.schema_version(conn) == db.SCHEMA_VERSION
+
+    def test_migration_v4_to_v5_adds_draft_columns(self, atelier_root: Path, tmp_path: Path) -> None:
+        """**真实的升级路径**：v4 老库升 v5，publish_drafts 补两列、旧数据完整（SPEC-10 §1）。"""
+        legacy = tmp_path / "legacy4.db"
+        conn = sqlite3.connect(str(legacy))
+        conn.row_factory = sqlite3.Row
+        try:
+            db._apply_v1(conn)
+            db._apply_v2(conn)
+            db._apply_v3(conn)
+            db._apply_v4(conn)
+            # _apply_v1 跑的是当前 _DDL（已含新列），先删掉才是真正的 v4 形状
+            conn.execute("ALTER TABLE publish_drafts DROP COLUMN topic_id")
+            conn.execute("ALTER TABLE publish_drafts DROP COLUMN scheduled_date")
+            conn.execute("PRAGMA user_version=4")
+            now = db.utcnow()
+            conn.execute(
+                "INSERT INTO publish_drafts (id, project, title, body, topic_tags, variants,"
+                " attachments, created_at, updated_at)"
+                " VALUES ('d1', NULL, '老草稿', '', '[]', '[]', '[]', ?, ?)",
+                (now, now),
+            )
+            conn.commit()
+
+            applied = db.migrate(conn)
+            assert "v5" in applied, applied
+            assert "add_column:publish_drafts.topic_id" in applied, applied
+            assert "add_column:publish_drafts.scheduled_date" in applied, applied
+            assert db.schema_version(conn) == db.SCHEMA_VERSION
+            row = conn.execute("SELECT * FROM publish_drafts WHERE id = 'd1'").fetchone()
+            assert row["title"] == "老草稿"
+            assert row["topic_id"] is None and row["scheduled_date"] is None  # 新列可空
+        finally:
+            conn.close()
 
     def test_reinit_after_new_root(self, atelier_root: Path) -> None:
         db.init_db()
@@ -122,6 +156,7 @@ class TestColumns:
             ("settings", ("k", "v")),
             ("topics", ("id", "title", "source", "status", "due_date")),
             ("calendar_events", ("id", "title", "date", "end_date", "kind", "remind_days", "source")),
+            ("publish_drafts", ("id", "title", "body", "topic_id", "scheduled_date")),
         ],
     )
     def test_expected_columns_present(self, atelier_root: Path, table: str, must_have: tuple[str, ...]) -> None:
